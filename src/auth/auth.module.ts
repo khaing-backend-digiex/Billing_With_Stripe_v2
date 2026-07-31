@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './guards/auth.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StripeService } from '../billing/stripe.service';
+import { AuthSeederService } from './auth-seeder.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { StripeService } from '../billing/stripe.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, StripeService],
+  providers: [AuthService, StripeService, AuthSeederService],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule { }

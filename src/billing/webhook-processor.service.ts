@@ -18,9 +18,9 @@ export class WebhookProcessorService {
   async processPendingEvents() {
     const events = await this.prisma.$queryRaw`
       SELECT * FROM webhook_events
-      WHERE status = ${WebhookStatus.PENDING}
-      AND next_retry_at <= NOW()
-      ORDER BY next_retry_at ASC
+      WHERE status = ${WebhookStatus.PENDING}::"WebhookStatus"
+      AND "nextRetryAt" <= NOW()
+      ORDER BY "nextRetryAt" ASC
       LIMIT 20
       FOR UPDATE SKIP LOCKED
     `;

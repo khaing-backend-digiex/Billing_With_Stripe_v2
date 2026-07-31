@@ -14,11 +14,15 @@ context: |
 
 rules:
   proposal:
-    - Include rollback plan and safe data migration strategy.
-    - Identify impacted business components: PRD, teams, services, APIs, DB schemas, queues/workers.
-    - Identify impacted infrastructure: configs, monitoring, logging, metrics.
-    - Explicitly address security and compliance impact (PII, PCI-DSS).
-    - MUST explicitly list all specific impacted file paths (e.g., src/app.module.ts).
+    - |
+      CRITICAL TEMPLATE RULE: You MUST use the EXACT following markdown structure for the Impact section in your output. Do not skip any fields.
+      
+      ## Impact
+      - **Impacted Business Components**: [List PRD, teams, services, APIs, DB schemas, queues/workers]
+      - **Impacted Infrastructure**: [List configs, monitoring, logging, metrics]
+      - **Security & Compliance Impact (PII, PCI-DSS)**: [Explicitly address impacts]
+      - **Rollback Plan & Data Migration Strategy**: [Detail rollback and safe migration]
+      - **Specific Impacted File Paths**: [MUST explicitly list all file paths like src/app.module.ts]
   specs:
     - Use Given/When/Then format for all scenarios.
     - Reference existing architectural patterns before inventing new ones.

@@ -10,3 +10,4 @@ generated
 test
 __mocks__
 .windsurf
+.agent

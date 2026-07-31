@@ -14,7 +14,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly stripeService: StripeService,
-  ) {}
+  ) { }
 
   async register(dto: RegisterDto) {
     const existingUser = await this.prisma.user.findUnique({
@@ -122,7 +122,15 @@ export class AuthService {
       include: {
         userRoles: {
           include: {
-            role: true,
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -140,10 +148,19 @@ export class AuthService {
 
     const roles = user.userRoles.map((ur) => ur.role.name);
 
+    const permissionSet = new Set<string>();
+    user.userRoles.forEach((ur) => {
+      ur.role.rolePermissions.forEach((rp) => {
+        permissionSet.add(rp.permission.name);
+      });
+    });
+    const permissions = Array.from(permissionSet);
+
     const payload = {
       sub: user.id,
       email: user.email,
       roles,
+      permissions,
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -152,6 +169,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       roles,
+      permissions,
       accessToken,
     };
   }
