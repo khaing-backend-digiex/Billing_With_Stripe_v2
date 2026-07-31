@@ -195,12 +195,19 @@ model ExchangeRate {
 }
 
 model WebhookEvent {
-  id            String   @id @default(uuid())
-  stripeEventId String   @unique
+  id            String        @id @default(uuid())
+  stripeEventId String        @unique
   type          String
   payload       Json
-  processedAt   DateTime @default(now())
+  status        WebhookStatus @default(PENDING)
+  retryCount    Int           @default(0)
+  maxRetries    Int           @default(3)
+  nextRetryAt   DateTime      @default(now())
+  lastError     String?
+  processedAt   DateTime?
+  createdAt     DateTime      @default(now())
 
+  @@index([status, nextRetryAt])
   @@map("webhook_events")
 }
 
@@ -220,4 +227,11 @@ enum SubStatus {
   PAST_DUE
   CANCELED
   EXPIRED
+}
+
+enum WebhookStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
 }

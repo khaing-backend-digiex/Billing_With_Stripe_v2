@@ -5,10 +5,11 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
+import { Permission } from '../auth/enums/permission.enum';
 
 @Controller('admin/catalog')
 @UseGuards(AuthGuard, PermissionsGuard)
-@RequirePermissions('CATALOG_MANAGE')
+@RequirePermissions(Permission.CATALOG_MANAGE)
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 

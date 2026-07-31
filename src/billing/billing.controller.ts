@@ -6,6 +6,7 @@ import { AuthGuard } from '../auth/guards/auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Permission } from '../auth/enums/permission.enum';
 
 @Controller('billing')
 @UseGuards(AuthGuard)
@@ -14,7 +15,7 @@ export class BillingController {
 
   @Post('checkout/subscription')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('BILLING_ACCESS')
+  @RequirePermissions(Permission.BILLING_ACCESS)
   async createSubscriptionCheckout(
     @CurrentUser('sub') userId: string,
     @Body() dto: CreateSubscriptionCheckoutDto,
@@ -24,7 +25,7 @@ export class BillingController {
 
   @Post('checkout/addon')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('BILLING_ACCESS')
+  @RequirePermissions(Permission.BILLING_ACCESS)
   async createAddonCheckout(
     @CurrentUser('sub') userId: string,
     @Body() dto: CreateAddonCheckoutDto,
@@ -34,7 +35,7 @@ export class BillingController {
 
   @Get('subscriptions')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('BILLING_ACCESS')
+  @RequirePermissions(Permission.BILLING_ACCESS)
   async getUserSubscriptions(@CurrentUser('sub') userId: string) {
     return this.billingService.getUserSubscriptions(userId);
   }
