@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// USER & AUTHENTICATION
+// ============================================================================
+
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  password         String
+  stripeCustomerId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  profile        Profile?
+  userRoles      UserRole[]
+  subscriptions  Subscription[]
+  creditBalance  CreditBalance?
+  addonPurchases AddonPurchase[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Profile {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  username    String
+  firstname   String
+  lastname    String
+  dateOfBirth DateTime
+  avatar      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+// ============================================================================
+// ROLE-BASED ACCESS CONTROL (RBAC)
+// ============================================================================
+
+model Role {
+  name        String   @id
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  name        String @id
+  description String
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId   String
+  roleName String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleName], references: [name], onDelete: Cascade)
+
+  @@id([userId, roleName])
+  @@index([userId])
+  @@index([roleName])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleName       String
+  permissionName String
+
+  role       Role       @relation(fields: [roleName], references: [name], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionName], references: [name], onDelete: Cascade)
+
+  @@id([roleName, permissionName])
+  @@index([roleName])
+  @@index([permissionName])
+  @@map("role_permissions")
+}
+
+// ============================================================================
+// BILLING & SUBSCRIPTIONS
+// ============================================================================
+
+model Subscription {
+  id                   String    @id @default(uuid())
+  userId               String
+  stripeSubscriptionId String    @unique
+  plan                 PlanType
+  status               SubStatus
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("subscriptions")
+}
+
+model CreditBalance {
+  userId                String   @id
+  planCredits           Int      @default(0)
+  addonCreditsAvailable Int      @default(0)
+  addonCreditsFrozen    Int      @default(0)
+  lastResetAt           DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("credit_balances")
+}
+
+model AddonPurchase {
+  id              String   @id @default(uuid())
+  userId          String
+  creditsGranted  Int
+  stripePaymentId String   @unique
+  purchasedAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("addon_purchases")
+}
+
+// ============================================================================
+// STRIPE CATALOG
+// ============================================================================
+
+model StripeProduct {
+  id              String   @id @default(uuid())
+  stripeProductId String   @unique
+  name            String
+  planType        PlanType
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  prices StripePrice[]
+
+  @@map("stripe_products")
+}
+
+model StripePrice {
+  id            String   @id @default(uuid())
+  stripePriceId String   @unique
+  productId     String
+  currency      String
+  amount        Int
+  interval      String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  product StripeProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, currency])
+  @@map("stripe_prices")
+}
+
+// ============================================================================
+// EXCHANGE RATES & WEBHOOKS
+// ============================================================================
+
+model ExchangeRate {
+  id             String   @id @default(uuid())
+  baseCurrency   String
+  targetCurrency String
+  rate           Decimal
+  updatedAt      DateTime @updatedAt
+
+  @@unique([baseCurrency, targetCurrency])
+  @@map("exchange_rates")
+}
+
+model WebhookEvent {
+  id            String   @id @default(uuid())
+  stripeEventId String   @unique
+  type          String
+  payload       Json
+  processedAt   DateTime @default(now())
+
+  @@map("webhook_events")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum PlanType {
+  FREE
+  PRO_MONTHLY
+  PRO_ANNUAL
+  ADDON
+}
+
+enum SubStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}

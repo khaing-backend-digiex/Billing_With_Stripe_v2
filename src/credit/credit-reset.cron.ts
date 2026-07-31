@@ -1,0 +1,56 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreditService } from './credit.service';
+import { PlanType, SubStatus } from '../../generated/prisma/client';
+import { PLAN_CREDIT_LIMITS } from '../constants/plan.constants';
+
+@Injectable()
+export class CreditResetCronService {
+  private readonly logger = new Logger(CreditResetCronService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly creditService: CreditService,
+  ) {}
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleMonthlyReset() {
+    const today = new Date();
+    const isFirstDayOfMonth = today.getDate() === 1;
+
+    if (!isFirstDayOfMonth) {
+      return;
+    }
+
+    this.logger.log('Running monthly credit reset');
+
+    const subscriptions = await this.prisma.subscription.findMany({
+      where: {
+        status: SubStatus.ACTIVE,
+      },
+      include: {
+        user: {
+          include: {
+            creditBalance: true,
+          },
+        },
+      },
+    });
+
+    for (const subscription of subscriptions) {
+      try {
+        if (subscription.plan === PlanType.FREE || subscription.plan === PlanType.PRO_ANNUAL || subscription.plan === PlanType.PRO_MONTHLY) {
+          const credits = PLAN_CREDIT_LIMITS[subscription.plan];
+          await this.creditService.resetPlanCredits(subscription.userId, credits);
+          this.logger.log(`Reset credits for user ${subscription.userId} to ${credits}`);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Failed to reset credits for user ${subscription.userId}: ${errorMessage}`);
+      }
+    }
+
+    this.logger.log('Monthly credit reset completed');
+  }
+}

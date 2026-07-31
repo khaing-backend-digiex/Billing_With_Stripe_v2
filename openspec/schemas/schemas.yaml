@@ -1,0 +1,58 @@
+name: billing-flow
+version: 1
+description: Secure development workflow for financial-related features
+
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: Solution proposal and business impact assessment
+    template: proposal.md
+    instruction: |
+      Focus on WHY this feature is needed.
+      Do not dive into technical details at this step.
+    requires: []
+
+  - id: specs
+    generates: specs/**/*.md
+    description: Behavioral Specifications
+    template: spec.md
+    instruction: |
+      Clearly define success and failure scenarios (e.g., card declined, timeout).
+      Use the Given/When/Then format.
+    requires:
+      - proposal
+
+  - id: design
+    generates: design.md
+    description: Technical and database design
+    template: design.md
+    instruction: |
+      Design API endpoints and database schema (Prisma).
+      MUST design Idempotency mechanisms for transactions.
+    requires:
+      - proposal
+      - specs
+
+  - id: security-audit
+    generates: audit.md
+    description: Security and data risk assessment
+    template: audit.md
+    instruction: |
+      Review the design to identify race condition risks during payments.
+      Ensure no raw credit card data is stored (PCI-DSS compliance).
+    requires:
+      - design
+
+  - id: tasks
+    generates: tasks.md
+    description: Implementation checklist for Developers
+    template: tasks.md
+    instruction: |
+      List detailed programming tasks.
+      Must include tasks for writing Unit Tests and Webhook integration.
+    requires:
+      - design
+      - security-audit 
+apply:
+  requires: [tasks]
+  tracks: tasks.md
