@@ -19,108 +19,108 @@
   <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
 </p>
 
-## Mô tả (Description)
+## Description
 
-**Billing Stripe Prompt** là một hệ thống backend được xây dựng bằng **NestJS** kết hợp với **Prisma ORM**, **PostgreSQL** và tích hợp thanh toán qua **Stripe**. Ứng dụng cung cấp các tính năng quản lý sản phẩm (catalog), thanh toán (billing), xử lý webhook từ Stripe, quản lý tín dụng (credit) và xác thực (auth).
+**Billing Stripe Prompt** is a backend application built with the **NestJS** framework, combined with **Prisma ORM**, **PostgreSQL**, and integrated with **Stripe** for payments. The application provides features for catalog management, billing, Stripe webhook processing, user credit management, and authentication.
 
-## Công nghệ sử dụng
+## Technologies Used
 
 - **Framework**: [NestJS](https://nestjs.com/) v11
-- **Cơ sở dữ liệu**: PostgreSQL
+- **Database**: PostgreSQL
 - **ORM**: [Prisma](https://www.prisma.io/) v7
-- **Thanh toán**: [Stripe SDK](https://stripe.com/docs/api)
-- **Bảo mật**: JWT (JSON Web Token), Bcrypt
-- **Ngôn ngữ**: TypeScript
+- **Payments**: [Stripe SDK](https://stripe.com/docs/api)
+- **Security**: JWT (JSON Web Token), Bcrypt
+- **Language**: TypeScript
 
-## Cấu trúc thư mục chính
+## Project Structure
 
 ```
 src/
-├── auth/          # Quản lý xác thực và phân quyền (Login, Register, JWT)
-├── billing/       # Xử lý thanh toán, Stripe webhook, hoá đơn, chiến lược xử lý
-├── catalog/       # Quản lý danh mục sản phẩm, các gói dịch vụ
-├── credit/        # Quản lý số dư, tín dụng của người dùng
-├── constants/     # Chứa các hằng số dùng chung cho toàn dự án
-├── prisma/        # Dịch vụ kết nối Prisma Database
-├── app.module.ts  # Module gốc (Root Module) của ứng dụng
-└── main.ts        # Entry point khởi chạy server NestJS
+├── auth/          # Authentication and authorization (Login, Register, JWT)
+├── billing/       # Payment processing, Stripe webhooks, invoicing, strategies
+├── catalog/       # Product catalog and subscription plans management
+├── credit/        # User credit balances management
+├── constants/     # Shared constants across the project
+├── prisma/        # Prisma database service connection
+├── app.module.ts  # Root module of the application
+└── main.ts        # Entry point for the NestJS server
 ```
 
-## Yêu cầu hệ thống
+## Prerequisites
 
-Trước khi cài đặt, đảm bảo máy tính của bạn đã cài đặt:
-- **Node.js** (Khuyến nghị phiên bản v18 hoặc v20 trở lên)
-- **PostgreSQL** (Đang chạy local hoặc trên cloud)
-- **Stripe CLI** (Tùy chọn - dùng để test Webhook trên môi trường local)
+Before starting, ensure you have the following installed:
+- **Node.js** (v18 or v20+ recommended)
+- **PostgreSQL** (Running locally or in the cloud)
+- **Stripe CLI** (Optional - used for testing webhooks locally)
 
-## Cài đặt (Project setup)
+## Project setup
 
 ```bash
-# Clone dự án về máy
-$ git clone <đường-dẫn-repo>
+# Clone the repository
+$ git clone <repository-url>
 $ cd Billing_Stripe_Prompt
 
-# Cài đặt các thư viện phụ thuộc
+# Install dependencies
 $ npm install
 ```
 
-### Thiết lập Biến môi trường (.env)
+### Environment Variables (.env)
 
-Tạo file `.env` ở thư mục gốc của dự án bằng cách copy từ `.env.example`:
+Create a `.env` file in the root directory by copying the `.env.example` file:
 
 ```bash
 $ cp .env.example .env
 ```
 
-Cập nhật các thông tin cấu hình phù hợp với môi trường của bạn:
+Update the configuration information in your `.env` file according to your environment:
 
 ```env
-# Stripe Configuration (Lấy từ Dashboard của Stripe)
+# Stripe Configuration (From your Stripe Dashboard)
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
 
-# Database PostgreSQL
+# PostgreSQL Database Connection
 DATABASE_URL=postgresql://user:password@localhost:5432/billing_db
 
 # JWT Configuration
 JWT_SECRET=your-super-secret-jwt-key
 JWT_EXPIRES_IN=1h
 
-# Frontend URL (Dùng cho điều hướng thanh toán Stripe Checkout)
+# Frontend URL (Used for Stripe Checkout redirects)
 FRONTEND_URL=http://localhost:3000
 ```
 
-### Thiết lập Cơ sở dữ liệu (Prisma)
+### Database Setup (Prisma)
 
 ```bash
-# Chạy migration để tạo các bảng trong database
+# Run migrations to create database tables
 $ npx prisma migrate dev
 
 # Generate Prisma client
 $ npx prisma generate
 ```
 
-### Test Stripe Webhook Local (Tùy chọn)
+### Test Stripe Webhook Local (Optional)
 
 ```bash
 $ stripe listen --forward-to localhost:3000/billing/webhook
 ```
-*(Copy webhook secret `whsec_...` vào biến `STRIPE_WEBHOOK_SECRET`)*
+*(Copy the webhook secret `whsec_...` and paste it into your `STRIPE_WEBHOOK_SECRET` variable in the `.env` file)*
 
-## Chạy ứng dụng (Compile and run the project)
+## Compile and run the project
 
 ```bash
-# development mode
+# development
 $ npm run start
 
 # watch mode
 $ npm run start:dev
 
-# production mode (sau khi đã build)
+# production mode
 $ npm run start:prod
 ```
 
-## Kiểm thử (Run tests)
+## Run tests
 
 ```bash
 # unit tests
@@ -133,39 +133,42 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
-## Triển khai (Deployment)
+## Deployment
 
-Khi bạn đã sẵn sàng triển khai ứng dụng NestJS của mình lên production, có một số bước quan trọng bạn có thể thực hiện để đảm bảo nó chạy hiệu quả nhất. Hãy xem qua [tài liệu triển khai](https://docs.nestjs.com/deployment) để biết thêm thông tin.
+When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
-Nếu bạn đang tìm kiếm một nền tảng dựa trên đám mây để triển khai ứng dụng NestJS của mình, hãy xem qua [Mau](https://mau.nestjs.com), nền tảng chính thức của chúng tôi để triển khai các ứng dụng NestJS trên AWS. Mau giúp việc triển khai trở nên đơn giản và nhanh chóng chỉ với vài bước:
+If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
 
 ```bash
 $ npm install -g @nestjs/mau
 $ mau deploy
 ```
 
-Với Mau, bạn có thể triển khai ứng dụng của mình chỉ bằng vài cú nhấp chuột, cho phép bạn tập trung vào việc xây dựng tính năng thay vì quản lý cơ sở hạ tầng.
+With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
-## Tài nguyên (Resources)
+## Resources
 
-Một số tài nguyên hữu ích khi làm việc với NestJS:
+Check out a few resources that may come in handy when working with NestJS:
 
-- Tham quan [Tài liệu NestJS](https://docs.nestjs.com) để tìm hiểu thêm về framework.
-- Đối với các câu hỏi và hỗ trợ, vui lòng truy cập [Kênh Discord](https://discord.gg/G7Qnnhy).
-- Để tìm hiểu sâu hơn và có thêm kinh nghiệm thực tế, hãy xem [các khóa học](https://courses.nestjs.com/) video chính thức.
-- Triển khai ứng dụng của bạn lên AWS với sự trợ giúp của [NestJS Mau](https://mau.nestjs.com).
-- Trực quan hóa đồ thị ứng dụng của bạn và tương tác với ứng dụng NestJS trong thời gian thực bằng [NestJS Devtools](https://devtools.nestjs.com).
+- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
+- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
+- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
+- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
+- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
+- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
+- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
+- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
 
-## Hỗ trợ (Support)
+## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
 
-## Liên hệ (Stay in touch)
+## Stay in touch
 
 - Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
 - Website - [https://nestjs.com](https://nestjs.com/)
 - Twitter - [@nestframework](https://twitter.com/nestframework)
 
-## Giấy phép (License)
+## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
