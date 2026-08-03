@@ -6,3 +6,5 @@ export const PLAN_CREDIT_LIMITS: Record<PlanType, number> = {
   [PlanType.PRO_ANNUAL]: 100,
   [PlanType.ADDON]: 0,
 };
+
+export const ADDON_CREDITS_PER_PURCHASE = 15;

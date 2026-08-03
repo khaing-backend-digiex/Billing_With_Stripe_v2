@@ -29,35 +29,10 @@ export class TransformResponseInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       map((data) => {
-        const isPaginated =
-          data !== null &&
-          typeof data === 'object' &&
-          data.__paginated === true;
+        const baseMeta = this.buildBaseMeta(request);
 
-        const baseMeta = {
-          requestId: request.headers['x-request-id'] || (request as any).reqId,
-          timestamp: new Date().toISOString(),
-          path: request.url,
-          method: request.method,
-        };
-
-        if (isPaginated) {
-          const { page, limit, total, ...rest } = data;
-          return {
-            statusCode: response.statusCode,
-            data: rest.data,
-            meta: {
-              ...baseMeta,
-              pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-                hasNext: page * limit < total,
-                hasPrev: page > 1,
-              },
-            },
-          };
+        if (data?.__paginated) {
+          return this.formatPaginatedResponse(data, response.statusCode, baseMeta);
         }
 
         return {
@@ -67,5 +42,33 @@ export class TransformResponseInterceptor implements NestInterceptor {
         };
       }),
     );
+  }
+
+  private buildBaseMeta(request: any) {
+    return {
+      requestId: request.headers['x-request-id'] || request.reqId,
+      timestamp: new Date().toISOString(),
+      path: request.url,
+      method: request.method,
+    };
+  }
+
+  private formatPaginatedResponse(data: any, statusCode: number, baseMeta: any) {
+    const { page, limit, total, data: items } = data;
+    return {
+      statusCode,
+      data: items,
+      meta: {
+        ...baseMeta,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+          hasNext: page * limit < total,
+          hasPrev: page > 1,
+        },
+      },
+    };
   }
 }

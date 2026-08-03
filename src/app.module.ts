@@ -9,7 +9,7 @@ import { CreditModule } from './credit/credit.module';
 import { LoggerModule } from './logger/logger.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { TransformResponseInterceptor } from './common/interceptors/transform-response.interceptor';
-import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
+import { CorrelationIdMiddleware } from './constants/correlation-id.middleware';
 
 @Module({
   imports: [

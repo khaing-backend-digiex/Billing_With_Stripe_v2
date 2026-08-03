@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '../../generated/prisma/client';
 import { StripeService } from '../billing/stripe.service';
 import { ExchangeRateService } from './exchange-rate.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ErrorCode } from '../common/enums/error-code.enum';
 import { ServiceError } from '../common/exceptions/service-error.exception';
 import { AppLogger } from '../logger/app-logger';
 
@@ -74,7 +76,7 @@ export class CatalogService {
     const { page = 1, limit = 20, planType, isActive } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.StripeProductWhereInput = {};
     if (planType) where.planType = planType;
     if (isActive !== undefined) where.isActive = isActive;
 
@@ -105,7 +107,7 @@ export class CatalogService {
     });
 
     if (!product) {
-      throw new ServiceError('PRODUCT_NOT_FOUND', `Product ${id} not found`);
+      throw new ServiceError(ErrorCode.PRODUCT_NOT_FOUND, `Product ${id} not found`);
     }
 
     return product;
@@ -159,7 +161,7 @@ export class CatalogService {
         product.stripeProductId,
         amount,
         currency,
-        product.prices[0]?.interval as 'month' | 'year' | undefined,
+        vndPrice.interval as 'month' | 'year' | undefined,
       );
 
       const price = await this.prisma.stripePrice.create({

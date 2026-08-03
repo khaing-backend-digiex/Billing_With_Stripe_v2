@@ -2,6 +2,7 @@ import { Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common'
 import { BaseExceptionFilter } from '@nestjs/core';
 import { Prisma } from '../../../generated/prisma/client';
 import { ServiceError } from '../exceptions/service-error.exception';
+import { ErrorCode } from '../enums/error-code.enum';
 import { AppLogger } from '../../logger/app-logger';
 
 @Catch()
@@ -39,23 +40,23 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
       case exception instanceof Prisma.PrismaClientKnownRequestError:
         status = HttpStatus.BAD_REQUEST;
         message = 'Database operation failed';
-        error = 'DATABASE_ERROR';
+        error = ErrorCode.DATABASE_ERROR;
         details = {
           code: exception.code,
-          meta: exception.meta,
+          ...(process.env.NODE_ENV !== 'production' && { meta: exception.meta }),
         };
         break;
 
       case exception instanceof Prisma.PrismaClientValidationError:
         status = HttpStatus.BAD_REQUEST;
         message = 'Database validation failed';
-        error = 'VALIDATION_ERROR';
+        error = ErrorCode.VALIDATION_ERROR;
         details = exception.message;
         break;
 
       default:
         message = 'Internal server error';
-        error = 'INTERNAL_ERROR';
+        error = ErrorCode.INTERNAL_ERROR;
     }
 
     const errorResponse = {
@@ -82,18 +83,33 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
   }
 
   private mapServiceErrorToStatus(code: string): number {
-    const notFoundCodes = ['USER_NOT_FOUND', 'PRICE_NOT_FOUND', 'SUBSCRIPTION_NOT_FOUND', 'CREDIT_BALANCE_NOT_FOUND', 'PRODUCT_NOT_FOUND'];
-    const validationCodes = ['INSUFFICIENT_CREDITS', 'INVALID_WEBHOOK_SIGNATURE', 'ADDON_REQUIRES_PRO', 'CROSS_TIER_UPGRADE_DENIED'];
+    const notFoundCodes = [
+      ErrorCode.USER_NOT_FOUND, 
+      ErrorCode.PRICE_NOT_FOUND, 
+      ErrorCode.SUBSCRIPTION_NOT_FOUND, 
+      ErrorCode.CREDIT_BALANCE_NOT_FOUND, 
+      ErrorCode.PRODUCT_NOT_FOUND
+    ];
+    
+    const validationCodes = [
+      ErrorCode.INSUFFICIENT_CREDITS, 
+      ErrorCode.INVALID_WEBHOOK_SIGNATURE, 
+      ErrorCode.ADDON_REQUIRES_PRO, 
+      ErrorCode.CROSS_TIER_UPGRADE_DENIED,
+      ErrorCode.STRIPE_CUSTOMER_MISSING
+    ];
+    
     const authCodes: Record<string, number> = {
-      EMAIL_ALREADY_IN_USE: HttpStatus.CONFLICT,
-      INVALID_CREDENTIALS: HttpStatus.UNAUTHORIZED,
+      [ErrorCode.EMAIL_ALREADY_IN_USE]: HttpStatus.CONFLICT,
+      [ErrorCode.INVALID_CREDENTIALS]: HttpStatus.UNAUTHORIZED,
+      [ErrorCode.USERNAME_ALREADY_TAKEN]: HttpStatus.CONFLICT,
     };
 
-    if (notFoundCodes.includes(code)) return HttpStatus.NOT_FOUND;
-    if (validationCodes.includes(code)) return HttpStatus.BAD_REQUEST;
+    if (notFoundCodes.includes(code as ErrorCode)) return HttpStatus.NOT_FOUND;
+    if (validationCodes.includes(code as ErrorCode)) return HttpStatus.BAD_REQUEST;
     if (authCodes[code]) return authCodes[code];
-    if (code === 'STRIPE_API_ERROR') return HttpStatus.BAD_GATEWAY;
-    if (code === 'EXCHANGE_RATE_UNAVAILABLE') return HttpStatus.SERVICE_UNAVAILABLE;
+    if (code === ErrorCode.STRIPE_API_ERROR) return HttpStatus.BAD_GATEWAY;
+    if (code === ErrorCode.EXCHANGE_RATE_UNAVAILABLE) return HttpStatus.SERVICE_UNAVAILABLE;
 
     return HttpStatus.BAD_REQUEST;
   }

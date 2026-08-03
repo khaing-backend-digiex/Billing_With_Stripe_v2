@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { AppLogger } from '../logger/app-logger';
+import { ErrorCode } from '../common/enums/error-code.enum';
 import { ServiceError } from '../common/exceptions/service-error.exception';
 
 @Injectable()
@@ -38,9 +39,9 @@ export class StripeService {
     return String(error);
   }
 
-  private wrapStripeError(message: string, endpoint: string, error: unknown): never {
+  private handleStripeError(error: unknown, message: string, endpoint: string): never {
     this.logger.error(message, error instanceof Error ? error.stack : undefined);
-    throw new ServiceError('STRIPE_API_ERROR', message, { originalError: this.extractErrorMessage(error), endpoint });
+    throw new ServiceError(ErrorCode.STRIPE_API_ERROR, message, { originalError: this.extractErrorMessage(error), endpoint });
   }
 
   async createProduct(name: string, metadata?: Record<string, string>): Promise<Stripe.Product> {
@@ -50,7 +51,7 @@ export class StripeService {
         metadata,
       });
     } catch (error) {
-      this.wrapStripeError('Failed to create product', 'products.create', error);
+      this.handleStripeError(error, 'Failed to create product', 'products.create');
     }
   }
 
@@ -73,7 +74,7 @@ export class StripeService {
 
       return await this.stripe.prices.create(priceData);
     } catch (error) {
-      this.wrapStripeError('Failed to create price', 'prices.create', error);
+      this.handleStripeError(error, 'Failed to create price', 'prices.create');
     }
   }
 
@@ -81,7 +82,7 @@ export class StripeService {
     try {
       return await this.stripe.products.update(productId, updates);
     } catch (error) {
-      this.wrapStripeError('Failed to update product', 'products.update', error);
+      this.handleStripeError(error, 'Failed to update product', 'products.update');
     }
   }
 
@@ -89,7 +90,7 @@ export class StripeService {
     try {
       return await this.stripe.prices.update(priceId, updates);
     } catch (error) {
-      this.wrapStripeError('Failed to update price', 'prices.update', error);
+      this.handleStripeError(error, 'Failed to update price', 'prices.update');
     }
   }
 
@@ -119,7 +120,7 @@ export class StripeService {
 
       return await this.stripe.checkout.sessions.create(sessionParams);
     } catch (error) {
-      this.wrapStripeError('Failed to create checkout session', 'checkout.sessions.create', error);
+      this.handleStripeError(error, 'Failed to create checkout session', 'checkout.sessions.create');
     }
   }
 
@@ -130,7 +131,7 @@ export class StripeService {
         metadata,
       });
     } catch (error) {
-      this.wrapStripeError('Failed to create customer', 'customers.create', error);
+      this.handleStripeError(error, 'Failed to create customer', 'customers.create');
     }
   }
 
@@ -150,7 +151,7 @@ export class StripeService {
         metadata: params.metadata,
       });
     } catch (error) {
-      this.wrapStripeError('Failed to create subscription', 'subscriptions.create', error);
+      this.handleStripeError(error, 'Failed to create subscription', 'subscriptions.create');
     }
   }
 
@@ -176,7 +177,7 @@ export class StripeService {
         metadata: params.metadata,
       });
     } catch (error) {
-      this.wrapStripeError('Failed to update subscription', 'subscriptions.update', error);
+      this.handleStripeError(error, 'Failed to update subscription', 'subscriptions.update');
     }
   }
 
@@ -184,7 +185,7 @@ export class StripeService {
     try {
       return await this.stripe.subscriptions.cancel(subscriptionId);
     } catch (error) {
-      this.wrapStripeError('Failed to cancel subscription', 'subscriptions.cancel', error);
+      this.handleStripeError(error, 'Failed to cancel subscription', 'subscriptions.cancel');
     }
   }
 
@@ -192,7 +193,7 @@ export class StripeService {
     try {
       return await this.stripe.subscriptions.retrieve(subscriptionId);
     } catch (error) {
-      this.wrapStripeError('Failed to retrieve subscription', 'subscriptions.retrieve', error);
+      this.handleStripeError(error, 'Failed to retrieve subscription', 'subscriptions.retrieve');
     }
   }
 
@@ -200,16 +201,15 @@ export class StripeService {
     try {
       return await this.stripe.checkout.sessions.retrieve(sessionId);
     } catch (error) {
-      this.wrapStripeError('Failed to retrieve checkout session', 'checkout.sessions.retrieve', error);
+      this.handleStripeError(error, 'Failed to retrieve checkout session', 'checkout.sessions.retrieve');
     }
   }
 
   verifyWebhookSignature(payload: string, signature: string): Stripe.Event {
     try {
       return this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
-    } catch (error) {
-      this.logger.error('Invalid Stripe webhook signature', error instanceof Error ? error.stack : undefined);
-      throw new ServiceError('INVALID_WEBHOOK_SIGNATURE', 'Invalid webhook signature');
+    } catch (err) {
+      throw new ServiceError(ErrorCode.INVALID_WEBHOOK_SIGNATURE, 'Invalid webhook signature');
     }
   }
 
@@ -217,7 +217,7 @@ export class StripeService {
     try {
       return await this.stripe.products.retrieve(productId);
     } catch (error) {
-      this.wrapStripeError('Failed to retrieve product', 'products.retrieve', error);
+      this.handleStripeError(error, 'Failed to retrieve product', 'products.retrieve');
     }
   }
 
@@ -225,7 +225,7 @@ export class StripeService {
     try {
       return await this.stripe.prices.retrieve(priceId);
     } catch (error) {
-      this.wrapStripeError('Failed to retrieve price', 'prices.retrieve', error);
+      this.handleStripeError(error, 'Failed to retrieve price', 'prices.retrieve');
     }
   }
 
@@ -237,7 +237,7 @@ export class StripeService {
       });
       return prices.data;
     } catch (error) {
-      this.wrapStripeError('Failed to list prices', 'prices.list', error);
+      this.handleStripeError(error, 'Failed to list prices', 'prices.list');
     }
   }
 }

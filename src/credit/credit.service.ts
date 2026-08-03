@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { AppLogger } from '../logger/app-logger';
+import { ErrorCode } from '../common/enums/error-code.enum';
 import { ServiceError } from '../common/exceptions/service-error.exception';
 
 @Injectable()
@@ -20,7 +21,7 @@ export class CreditService {
       });
 
       if (!balance) {
-        throw new ServiceError('CREDIT_BALANCE_NOT_FOUND', 'Credit balance not found');
+        throw new ServiceError(ErrorCode.CREDIT_BALANCE_NOT_FOUND, 'Credit balance not found');
       }
 
       let remaining = amount;
@@ -39,7 +40,7 @@ export class CreditService {
       }
 
       if (remaining > 0) {
-        throw new ServiceError('INSUFFICIENT_CREDITS', 'Insufficient credits');
+        throw new ServiceError(ErrorCode.INSUFFICIENT_CREDITS, 'Insufficient credits');
       }
 
       await tx.creditBalance.update({
@@ -57,7 +58,7 @@ export class CreditService {
     });
 
     if (!balance) {
-      throw new ServiceError('CREDIT_BALANCE_NOT_FOUND', 'Credit balance not found');
+      throw new ServiceError(ErrorCode.CREDIT_BALANCE_NOT_FOUND, 'Credit balance not found');
     }
 
     return balance;
@@ -94,13 +95,13 @@ export class CreditService {
     });
 
     if (!balance) {
-      throw new ServiceError('CREDIT_BALANCE_NOT_FOUND', 'Credit balance not found');
+      throw new ServiceError(ErrorCode.CREDIT_BALANCE_NOT_FOUND, 'Credit balance not found');
     }
 
     await client.creditBalance.update({
       where: { userId },
       data: {
-        addonCreditsFrozen: balance.addonCreditsAvailable,
+        addonCreditsFrozen: { increment: balance.addonCreditsAvailable },
         addonCreditsAvailable: 0,
       },
     });
@@ -114,7 +115,7 @@ export class CreditService {
     });
 
     if (!balance) {
-      throw new ServiceError('CREDIT_BALANCE_NOT_FOUND', 'Credit balance not found');
+      throw new ServiceError(ErrorCode.CREDIT_BALANCE_NOT_FOUND, 'Credit balance not found');
     }
 
     await client.creditBalance.update({

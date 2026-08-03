@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { ErrorCode } from '../common/enums/error-code.enum';
 import { ServiceError } from '../common/exceptions/service-error.exception';
 import { AppLogger } from '../logger/app-logger';
 
@@ -57,7 +58,7 @@ export class ExchangeRateService {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         this.logger.error(`Failed to get rate for ${currency}: ${errorMessage}`);
-        throw new ServiceError('EXCHANGE_RATE_UNAVAILABLE', 'Exchange rate service temporarily unavailable');
+        throw new ServiceError(ErrorCode.EXCHANGE_RATE_UNAVAILABLE, 'Exchange rate service temporarily unavailable');
       }
     }
 
@@ -125,7 +126,7 @@ export class ExchangeRateService {
     });
 
     if (!cached) {
-      throw new ServiceError('EXCHANGE_RATE_UNAVAILABLE', 'No cached exchange rate available');
+      throw new ServiceError(ErrorCode.EXCHANGE_RATE_UNAVAILABLE, 'No cached exchange rate available');
     }
 
     const hoursSinceUpdate = (Date.now() - cached.updatedAt.getTime()) / (1000 * 60 * 60);
