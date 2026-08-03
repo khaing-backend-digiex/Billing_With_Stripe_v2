@@ -5,6 +5,7 @@ node_modules
 /generated/prisma
 dist
 .agents
+.agent
 .opencode
 generated
 test
