@@ -1,12 +1,17 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { AppLogger } from '../logger/app-logger';
+import { ServiceError } from '../common/exceptions/service-error.exception';
 
 @Injectable()
 export class CreditService {
-  private readonly logger = new Logger(CreditService.name);
-
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('CreditService');
+  }
 
   async consumeCredits(userId: string, amount: number) {
     return this.prisma.$transaction(async (tx) => {
@@ -15,7 +20,7 @@ export class CreditService {
       });
 
       if (!balance) {
-        throw new NotFoundException('Credit balance not found');
+        throw new ServiceError('CREDIT_BALANCE_NOT_FOUND', 'Credit balance not found');
       }
 
       let remaining = amount;
@@ -34,7 +39,7 @@ export class CreditService {
       }
 
       if (remaining > 0) {
-        throw new BadRequestException('Insufficient credits');
+        throw new ServiceError('INSUFFICIENT_CREDITS', 'Insufficient credits');
       }
 
       await tx.creditBalance.update({
@@ -52,7 +57,7 @@ export class CreditService {
     });
 
     if (!balance) {
-      throw new NotFoundException('Credit balance not found');
+      throw new ServiceError('CREDIT_BALANCE_NOT_FOUND', 'Credit balance not found');
     }
 
     return balance;
@@ -60,7 +65,7 @@ export class CreditService {
 
   async resetPlanCredits(userId: string, amount: number, tx?: Prisma.TransactionClient) {
     const client = tx || this.prisma;
-    
+
     await client.creditBalance.update({
       where: { userId },
       data: {
@@ -72,7 +77,7 @@ export class CreditService {
 
   async addAddonCredits(userId: string, amount: number, tx?: Prisma.TransactionClient) {
     const client = tx || this.prisma;
-    
+
     await client.creditBalance.update({
       where: { userId },
       data: {
@@ -83,13 +88,13 @@ export class CreditService {
 
   async freezeAddonCredits(userId: string, tx?: Prisma.TransactionClient) {
     const client = tx || this.prisma;
-    
+
     const balance = await client.creditBalance.findUnique({
       where: { userId },
     });
 
     if (!balance) {
-      throw new NotFoundException('Credit balance not found');
+      throw new ServiceError('CREDIT_BALANCE_NOT_FOUND', 'Credit balance not found');
     }
 
     await client.creditBalance.update({
@@ -103,13 +108,13 @@ export class CreditService {
 
   async unfreezeAddonCredits(userId: string, tx?: Prisma.TransactionClient) {
     const client = tx || this.prisma;
-    
+
     const balance = await client.creditBalance.findUnique({
       where: { userId },
     });
 
     if (!balance) {
-      throw new NotFoundException('Credit balance not found');
+      throw new ServiceError('CREDIT_BALANCE_NOT_FOUND', 'Credit balance not found');
     }
 
     await client.creditBalance.update({

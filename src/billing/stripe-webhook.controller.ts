@@ -1,4 +1,4 @@
-import { Controller, Post, Headers, Body, RawBodyRequest, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Headers, RawBodyRequest, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { StripeService } from './stripe.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,12 +18,7 @@ export class StripeWebhookController {
   ) {
     const payload = req.rawBody?.toString() || '';
 
-    let event;
-    try {
-      event = this.stripeService.verifyWebhookSignature(payload, signature);
-    } catch (error) {
-      throw new BadRequestException('Invalid webhook signature');
-    }
+    const event = this.stripeService.verifyWebhookSignature(payload, signature);
 
     const existing = await this.prisma.webhookEvent.findUnique({
       where: { stripeEventId: event.id },

@@ -1,37 +1,57 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
+import { AppLogger } from '../logger/app-logger';
+import { ServiceError } from '../common/exceptions/service-error.exception';
 
 @Injectable()
 export class StripeService {
-  private readonly logger = new Logger(StripeService.name);
   private readonly stripe: Stripe;
   private readonly webhookSecret: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('StripeService');
+
     const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
-    
+
     if (!secretKey) {
       throw new Error('STRIPE_SECRET_KEY is not defined');
     }
-    
+
     if (!webhookSecret) {
       throw new Error('STRIPE_WEBHOOK_SECRET is not defined');
     }
 
     this.webhookSecret = webhookSecret;
-    
+
     this.stripe = new Stripe(secretKey, {
       apiVersion: '2026-06-24.dahlia',
     });
   }
 
+  private extractErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    return String(error);
+  }
+
+  private wrapStripeError(message: string, endpoint: string, error: unknown): never {
+    this.logger.error(message, error instanceof Error ? error.stack : undefined);
+    throw new ServiceError('STRIPE_API_ERROR', message, { originalError: this.extractErrorMessage(error), endpoint });
+  }
+
   async createProduct(name: string, metadata?: Record<string, string>): Promise<Stripe.Product> {
-    return this.stripe.products.create({
-      name,
-      metadata,
-    });
+    try {
+      return await this.stripe.products.create({
+        name,
+        metadata,
+      });
+    } catch (error) {
+      this.wrapStripeError('Failed to create product', 'products.create', error);
+    }
   }
 
   async createPrice(
@@ -40,25 +60,37 @@ export class StripeService {
     currency: string,
     interval?: 'month' | 'year',
   ): Promise<Stripe.Price> {
-    const priceData: Stripe.PriceCreateParams = {
-      product: productId,
-      unit_amount: amount,
-      currency: currency.toLowerCase(),
-    };
+    try {
+      const priceData: Stripe.PriceCreateParams = {
+        product: productId,
+        unit_amount: amount,
+        currency: currency.toLowerCase(),
+      };
 
-    if (interval) {
-      priceData.recurring = { interval };
+      if (interval) {
+        priceData.recurring = { interval };
+      }
+
+      return await this.stripe.prices.create(priceData);
+    } catch (error) {
+      this.wrapStripeError('Failed to create price', 'prices.create', error);
     }
-
-    return this.stripe.prices.create(priceData);
   }
 
   async updateProduct(productId: string, updates: { name?: string; active?: boolean }): Promise<Stripe.Product> {
-    return this.stripe.products.update(productId, updates);
+    try {
+      return await this.stripe.products.update(productId, updates);
+    } catch (error) {
+      this.wrapStripeError('Failed to update product', 'products.update', error);
+    }
   }
 
   async updatePrice(priceId: string, updates: { active?: boolean }): Promise<Stripe.Price> {
-    return this.stripe.prices.update(priceId, updates);
+    try {
+      return await this.stripe.prices.update(priceId, updates);
+    } catch (error) {
+      this.wrapStripeError('Failed to update price', 'prices.update', error);
+    }
   }
 
   async createCheckoutSession(params: {
@@ -69,29 +101,37 @@ export class StripeService {
     cancelUrl: string;
     metadata?: Record<string, string>;
   }): Promise<Stripe.Checkout.Session> {
-    const sessionParams: Stripe.Checkout.SessionCreateParams = {
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price: params.priceId,
-          quantity: 1,
-        },
-      ],
-      mode: params.mode,
-      customer: params.customerId,
-      success_url: params.successUrl,
-      cancel_url: params.cancelUrl,
-      metadata: params.metadata,
-    };
+    try {
+      const sessionParams: Stripe.Checkout.SessionCreateParams = {
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: params.priceId,
+            quantity: 1,
+          },
+        ],
+        mode: params.mode,
+        customer: params.customerId,
+        success_url: params.successUrl,
+        cancel_url: params.cancelUrl,
+        metadata: params.metadata,
+      };
 
-    return this.stripe.checkout.sessions.create(sessionParams);
+      return await this.stripe.checkout.sessions.create(sessionParams);
+    } catch (error) {
+      this.wrapStripeError('Failed to create checkout session', 'checkout.sessions.create', error);
+    }
   }
 
   async createCustomer(email: string, metadata?: Record<string, string>): Promise<Stripe.Customer> {
-    return this.stripe.customers.create({
-      email,
-      metadata,
-    });
+    try {
+      return await this.stripe.customers.create({
+        email,
+        metadata,
+      });
+    } catch (error) {
+      this.wrapStripeError('Failed to create customer', 'customers.create', error);
+    }
   }
 
   async createSubscription(params: {
@@ -99,15 +139,19 @@ export class StripeService {
     priceId: string;
     metadata?: Record<string, string>;
   }): Promise<Stripe.Subscription> {
-    return this.stripe.subscriptions.create({
-      customer: params.customerId,
-      items: [
-        {
-          price: params.priceId,
-        },
-      ],
-      metadata: params.metadata,
-    });
+    try {
+      return await this.stripe.subscriptions.create({
+        customer: params.customerId,
+        items: [
+          {
+            price: params.priceId,
+          },
+        ],
+        metadata: params.metadata,
+      });
+    } catch (error) {
+      this.wrapStripeError('Failed to create subscription', 'subscriptions.create', error);
+    }
   }
 
   async updateSubscription(
@@ -118,49 +162,82 @@ export class StripeService {
       metadata?: Record<string, string>;
     },
   ): Promise<Stripe.Subscription> {
-    const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+    try {
+      const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
 
-    return this.stripe.subscriptions.update(subscriptionId, {
-      items: [
-        {
-          id: subscription.items.data[0].id,
-          price: params.newPriceId,
-        },
-      ],
-      proration_behavior: params.prorationBehavior || 'create_prorations',
-      metadata: params.metadata,
-    });
+      return await this.stripe.subscriptions.update(subscriptionId, {
+        items: [
+          {
+            id: subscription.items.data[0].id,
+            price: params.newPriceId,
+          },
+        ],
+        proration_behavior: params.prorationBehavior || 'create_prorations',
+        metadata: params.metadata,
+      });
+    } catch (error) {
+      this.wrapStripeError('Failed to update subscription', 'subscriptions.update', error);
+    }
   }
 
   async cancelSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
-    return this.stripe.subscriptions.cancel(subscriptionId);
+    try {
+      return await this.stripe.subscriptions.cancel(subscriptionId);
+    } catch (error) {
+      this.wrapStripeError('Failed to cancel subscription', 'subscriptions.cancel', error);
+    }
   }
 
   async getSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
-    return this.stripe.subscriptions.retrieve(subscriptionId);
+    try {
+      return await this.stripe.subscriptions.retrieve(subscriptionId);
+    } catch (error) {
+      this.wrapStripeError('Failed to retrieve subscription', 'subscriptions.retrieve', error);
+    }
   }
 
   async getCheckoutSession(sessionId: string): Promise<Stripe.Checkout.Session> {
-    return this.stripe.checkout.sessions.retrieve(sessionId);
+    try {
+      return await this.stripe.checkout.sessions.retrieve(sessionId);
+    } catch (error) {
+      this.wrapStripeError('Failed to retrieve checkout session', 'checkout.sessions.retrieve', error);
+    }
   }
 
   verifyWebhookSignature(payload: string, signature: string): Stripe.Event {
-    return this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
+    try {
+      return this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
+    } catch (error) {
+      this.logger.error('Invalid Stripe webhook signature', error instanceof Error ? error.stack : undefined);
+      throw new ServiceError('INVALID_WEBHOOK_SIGNATURE', 'Invalid webhook signature');
+    }
   }
 
   async getProduct(productId: string): Promise<Stripe.Product> {
-    return this.stripe.products.retrieve(productId);
+    try {
+      return await this.stripe.products.retrieve(productId);
+    } catch (error) {
+      this.wrapStripeError('Failed to retrieve product', 'products.retrieve', error);
+    }
   }
 
   async getPrice(priceId: string): Promise<Stripe.Price> {
-    return this.stripe.prices.retrieve(priceId);
+    try {
+      return await this.stripe.prices.retrieve(priceId);
+    } catch (error) {
+      this.wrapStripeError('Failed to retrieve price', 'prices.retrieve', error);
+    }
   }
 
   async listPrices(productId: string): Promise<Stripe.Price[]> {
-    const prices = await this.stripe.prices.list({
-      product: productId,
-      active: true,
-    });
-    return prices.data;
+    try {
+      const prices = await this.stripe.prices.list({
+        product: productId,
+        active: true,
+      });
+      return prices.data;
+    } catch (error) {
+      this.wrapStripeError('Failed to list prices', 'prices.list', error);
+    }
   }
 }

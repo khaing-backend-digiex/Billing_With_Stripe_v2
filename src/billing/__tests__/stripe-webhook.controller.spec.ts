@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
 import { StripeWebhookController } from '../stripe-webhook.controller';
 import { StripeService } from '../stripe.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AppLogger } from '../../logger/app-logger';
+import { ServiceError } from '../../common/exceptions/service-error.exception';
 import { WebhookStatus } from '../../../generated/prisma/client';
 import Stripe from 'stripe';
 
@@ -22,12 +23,22 @@ describe('StripeWebhookController', () => {
     },
   };
 
+  const mockLogger = {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+    setContext: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [StripeWebhookController],
       providers: [
         { provide: StripeService, useValue: mockStripeService },
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: AppLogger, useValue: mockLogger },
       ],
     }).compile();
 
@@ -89,24 +100,24 @@ describe('StripeWebhookController', () => {
       expect(prismaService.webhookEvent.create).not.toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException on invalid signature', async () => {
+    it('should throw ServiceError on invalid signature', async () => {
       mockStripeService.verifyWebhookSignature.mockImplementation(() => {
-        throw new Error('Invalid signature');
+        throw new ServiceError('INVALID_WEBHOOK_SIGNATURE', 'Invalid webhook signature');
       });
 
       await expect(
         controller.handleWebhook('invalid_sig', mockRequest as any)
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ServiceError);
     });
 
-    it('should throw BadRequestException when signature header is missing', async () => {
+    it('should throw ServiceError when signature header is missing', async () => {
       mockStripeService.verifyWebhookSignature.mockImplementation(() => {
-        throw new Error('Missing signature');
+        throw new ServiceError('INVALID_WEBHOOK_SIGNATURE', 'Invalid webhook signature');
       });
 
       await expect(
         controller.handleWebhook(undefined as any, mockRequest as any)
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ServiceError);
     });
 
     it('should handle rawBody as string', async () => {
@@ -130,12 +141,12 @@ describe('StripeWebhookController', () => {
       const requestWithEmptyBody = { rawBody: '' };
 
       mockStripeService.verifyWebhookSignature.mockImplementation(() => {
-        throw new Error('Empty payload');
+        throw new ServiceError('INVALID_WEBHOOK_SIGNATURE', 'Invalid webhook signature');
       });
 
       await expect(
         controller.handleWebhook('sig_test', requestWithEmptyBody as any)
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ServiceError);
     });
   });
 });

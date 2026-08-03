@@ -20,6 +20,7 @@ describe('AuthService', () => {
     },
     profile: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
     },
     userRole: {
@@ -132,8 +133,9 @@ describe('AuthService', () => {
         data: {
           userId: 'user-id',
           planCredits: 50,
-          addonCredits: 0,
-          frozenAddonCredits: 0,
+          addonCreditsAvailable: 0,
+          addonCreditsFrozen: 0,
+          lastResetAt: expect.any(Date),
         },
       });
     });
@@ -151,7 +153,7 @@ describe('AuthService', () => {
 
     it('should throw ConflictException if username already exists', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
-      mockPrisma.profile.findUnique.mockResolvedValue({
+      mockPrisma.profile.findFirst.mockResolvedValue({
         id: 'existing-id',
         username: registerDto.username,
       });

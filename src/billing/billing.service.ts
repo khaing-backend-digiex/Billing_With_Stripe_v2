@@ -1,29 +1,32 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StripeService } from './stripe.service';
 import { CreditService } from '../credit/credit.service';
 import { PlanType, SubStatus } from '../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '../constants/plan.constants';
+import { AppLogger } from '../logger/app-logger';
+import { ServiceError } from '../common/exceptions/service-error.exception';
 
 @Injectable()
 export class BillingService {
-  private readonly logger = new Logger(BillingService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly stripeService: StripeService,
     private readonly creditService: CreditService,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('BillingService');
+  }
 
   async createSubscriptionCheckout(userId: string, priceId: string, currency: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new ServiceError('USER_NOT_FOUND', 'User not found');
 
     const price = await this.prisma.stripePrice.findUnique({
       where: { stripePriceId: priceId },
       include: { product: true },
     });
-    if (!price) throw new NotFoundException('Price not found');
+    if (!price) throw new ServiceError('PRICE_NOT_FOUND', 'Price not found');
 
     const session = await this.stripeService.createCheckoutSession({
       customerId: user.stripeCustomerId!,
@@ -42,7 +45,7 @@ export class BillingService {
 
   async createAddonCheckout(userId: string, priceId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new ServiceError('USER_NOT_FOUND', 'User not found');
 
     const activeSubscription = await this.prisma.subscription.findFirst({
       where: {
@@ -52,14 +55,14 @@ export class BillingService {
       },
     });
     if (!activeSubscription) {
-      throw new BadRequestException('Add-on purchases require Pro subscription');
+      throw new ServiceError('ADDON_REQUIRES_PRO', 'Add-on purchases require Pro subscription');
     }
 
     const price = await this.prisma.stripePrice.findUnique({
       where: { stripePriceId: priceId },
       include: { product: true },
     });
-    if (!price) throw new NotFoundException('Price not found');
+    if (!price) throw new ServiceError('PRICE_NOT_FOUND', 'Price not found');
 
     const session = await this.stripeService.createCheckoutSession({
       customerId: user.stripeCustomerId!,
@@ -198,13 +201,13 @@ export class BillingService {
     const activeSubscription = await this.prisma.subscription.findFirst({
       where: { userId, status: SubStatus.ACTIVE },
     });
-    if (!activeSubscription) throw new NotFoundException('No active subscription');
+    if (!activeSubscription) throw new ServiceError('SUBSCRIPTION_NOT_FOUND', 'No active subscription');
 
     const newPrice = await this.prisma.stripePrice.findUnique({
       where: { stripePriceId: newPriceId },
       include: { product: true },
     });
-    if (!newPrice) throw new NotFoundException('Price not found');
+    if (!newPrice) throw new ServiceError('PRICE_NOT_FOUND', 'Price not found');
 
     const currentPlan = activeSubscription.plan;
     const newPlan = newPrice.product.planType;
@@ -220,7 +223,7 @@ export class BillingService {
         data: { plan: newPlan },
       });
     } else {
-      throw new BadRequestException('Cross-tier changes require cancel and create');
+      throw new ServiceError('CROSS_TIER_UPGRADE_DENIED', 'Cross-tier changes require cancel and create');
     }
 
     return this.getUserSubscriptions(userId);

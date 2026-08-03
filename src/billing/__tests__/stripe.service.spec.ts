@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { StripeService } from '../stripe.service';
+import { AppLogger } from '../../logger/app-logger';
 import Stripe from 'stripe';
 
 jest.mock('stripe');
@@ -17,6 +18,15 @@ describe('StripeService', () => {
     }),
   };
 
+  const mockLogger = {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+    setContext: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -25,11 +35,46 @@ describe('StripeService', () => {
           provide: ConfigService,
           useValue: mockConfigService,
         },
+        {
+          provide: AppLogger,
+          useValue: mockLogger,
+        },
       ],
     }).compile();
 
     service = module.get<StripeService>(StripeService);
     stripeMock = service['stripe'] as jest.Mocked<Stripe>;
+    
+    // Initialize nested mock objects
+    stripeMock.products = {
+      create: jest.fn(),
+      retrieve: jest.fn(),
+      update: jest.fn(),
+    } as any;
+    stripeMock.prices = {
+      create: jest.fn(),
+      retrieve: jest.fn(),
+      update: jest.fn(),
+      list: jest.fn(),
+    } as any;
+    stripeMock.customers = {
+      create: jest.fn(),
+    } as any;
+    stripeMock.subscriptions = {
+      create: jest.fn(),
+      retrieve: jest.fn(),
+      update: jest.fn(),
+      cancel: jest.fn(),
+    } as any;
+    stripeMock.checkout = {
+      sessions: {
+        create: jest.fn(),
+        retrieve: jest.fn(),
+      },
+    } as any;
+    stripeMock.webhooks = {
+      constructEvent: jest.fn(),
+    } as any;
   });
 
   afterEach(() => {
