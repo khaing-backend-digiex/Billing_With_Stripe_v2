@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ExchangeRateService } from '../exchange-rate.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AppLogger } from '../../logger/app-logger';
 
 describe('ExchangeRateService', () => {
   let service: ExchangeRateService;
@@ -35,6 +35,10 @@ describe('ExchangeRateService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: AppLogger,
+          useValue: { error: jest.fn(), warn: jest.fn(), log: jest.fn() },
         },
       ],
     }).compile();

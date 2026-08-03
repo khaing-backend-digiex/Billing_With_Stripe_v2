@@ -1,19 +1,22 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StripeService } from '../billing/stripe.service';
 import { ExchangeRateService } from './exchange-rate.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ServiceError } from '../common/exceptions/service-error.exception';
+import { AppLogger } from '../logger/app-logger';
 
 @Injectable()
 export class CatalogService {
-  private readonly logger = new Logger(CatalogService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly stripeService: StripeService,
     private readonly exchangeRateService: ExchangeRateService,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('CatalogService');
+  }
 
   async createProduct(dto: CreateProductDto) {
     this.logger.log(`Creating product: ${dto.name}`);
@@ -67,15 +70,30 @@ export class CatalogService {
     };
   }
 
-  async findAllProducts() {
-    return this.prisma.stripeProduct.findMany({
-      include: {
-        prices: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+  async findAllProducts(query: { page?: number; limit?: number; planType?: any; isActive?: boolean }) {
+    const { page = 1, limit = 20, planType, isActive } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (planType) where.planType = planType;
+    if (isActive !== undefined) where.isActive = isActive;
+
+    const [data, total] = await Promise.all([
+      this.prisma.stripeProduct.findMany({
+        where,
+        include: {
+          prices: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+      this.prisma.stripeProduct.count({ where }),
+    ]);
+
+    return { data, total, page, limit, __paginated: true };
   }
 
   async findProductById(id: string) {
@@ -87,7 +105,7 @@ export class CatalogService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Product ${id} not found`);
+      throw new ServiceError('PRODUCT_NOT_FOUND', `Product ${id} not found`);
     }
 
     return product;

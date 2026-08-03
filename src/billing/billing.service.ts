@@ -80,11 +80,24 @@ export class BillingService {
     return { url: session.url };
   }
 
-  async getUserSubscriptions(userId: string) {
-    return this.prisma.subscription.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+  async getUserSubscriptions(userId: string, query: { page?: number; limit?: number; status?: any }) {
+    const { page = 1, limit = 10, status } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = { userId };
+    if (status) where.status = status;
+
+    const [data, total] = await Promise.all([
+      this.prisma.subscription.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.subscription.count({ where }),
+    ]);
+
+    return { data, total, page, limit, __paginated: true };
   }
 
   async handleCheckoutCompleted(sessionId: string) {
@@ -226,7 +239,7 @@ export class BillingService {
       throw new ServiceError('CROSS_TIER_UPGRADE_DENIED', 'Cross-tier changes require cancel and create');
     }
 
-    return this.getUserSubscriptions(userId);
+    return this.getUserSubscriptions(userId, {});
   }
 
   private isSameTierUpgrade(current: PlanType, next: PlanType): boolean {

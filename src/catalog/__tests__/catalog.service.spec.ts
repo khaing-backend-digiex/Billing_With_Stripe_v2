@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
 import { CatalogService } from '../catalog.service';
 import { ExchangeRateService } from '../exchange-rate.service';
 import { StripeService } from '../../billing/stripe.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AppLogger } from '../../logger/app-logger';
 import { PlanType } from '../../../generated/prisma/client';
 
 describe('CatalogService', () => {
@@ -15,6 +15,7 @@ describe('CatalogService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
     stripePrice: {
       create: jest.fn(),
@@ -40,6 +41,7 @@ describe('CatalogService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: StripeService, useValue: mockStripeService },
         { provide: ExchangeRateService, useValue: mockExchangeRateService },
+        { provide: AppLogger, useValue: { error: jest.fn(), warn: jest.fn(), log: jest.fn() } },
       ],
     }).compile();
 
@@ -84,10 +86,17 @@ describe('CatalogService', () => {
     it('should return all products with prices', async () => {
       const mockProducts = [{ id: '1', name: 'Pro', prices: [] }];
       mockPrisma.stripeProduct.findMany.mockResolvedValue(mockProducts);
+      mockPrisma.stripeProduct.count.mockResolvedValue(1);
 
-      const result = await service.findAllProducts();
+      const result = await service.findAllProducts({});
 
-      expect(result).toEqual(mockProducts);
+      expect(result).toEqual({
+        data: mockProducts,
+        total: 1,
+        page: 1,
+        limit: 20,
+        __paginated: true,
+      });
     });
   });
 

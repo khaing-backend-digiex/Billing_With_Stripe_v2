@@ -60,12 +60,17 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
 
     const errorResponse = {
       statusCode: status,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      method: request.method,
-      message,
-      error,
-      ...(details && { details }),
+      error: {
+        code: error,
+        message,
+        ...(details && { details }),
+      },
+      meta: {
+        requestId: request.headers['x-request-id'] || request.reqId,
+        timestamp: new Date().toISOString(),
+        path: request.url,
+        method: request.method,
+      },
     };
 
     this.logger.error(
@@ -77,12 +82,18 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
   }
 
   private mapServiceErrorToStatus(code: string): number {
-    const notFoundCodes = ['USER_NOT_FOUND', 'PRICE_NOT_FOUND', 'SUBSCRIPTION_NOT_FOUND', 'CREDIT_BALANCE_NOT_FOUND'];
+    const notFoundCodes = ['USER_NOT_FOUND', 'PRICE_NOT_FOUND', 'SUBSCRIPTION_NOT_FOUND', 'CREDIT_BALANCE_NOT_FOUND', 'PRODUCT_NOT_FOUND'];
     const validationCodes = ['INSUFFICIENT_CREDITS', 'INVALID_WEBHOOK_SIGNATURE', 'ADDON_REQUIRES_PRO', 'CROSS_TIER_UPGRADE_DENIED'];
+    const authCodes: Record<string, number> = {
+      EMAIL_ALREADY_IN_USE: HttpStatus.CONFLICT,
+      INVALID_CREDENTIALS: HttpStatus.UNAUTHORIZED,
+    };
 
     if (notFoundCodes.includes(code)) return HttpStatus.NOT_FOUND;
     if (validationCodes.includes(code)) return HttpStatus.BAD_REQUEST;
+    if (authCodes[code]) return authCodes[code];
     if (code === 'STRIPE_API_ERROR') return HttpStatus.BAD_GATEWAY;
+    if (code === 'EXCHANGE_RATE_UNAVAILABLE') return HttpStatus.SERVICE_UNAVAILABLE;
 
     return HttpStatus.BAD_REQUEST;
   }

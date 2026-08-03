@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { StripeService } from '../billing/stripe.service';
@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { PredefinedRole } from '../constants/predefined-role';
 import { PlanType, SubStatus } from '../../generated/prisma/client';
+import { ServiceError } from '../common/exceptions/service-error.exception';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +23,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('Email already in use');
+      throw new ServiceError('EMAIL_ALREADY_IN_USE', 'Email already in use');
     }
 
     const existingUsername = await this.prisma.profile.findFirst({
@@ -30,7 +31,7 @@ export class AuthService {
     });
 
     if (existingUsername) {
-      throw new ConflictException('Username already taken');
+      throw new ServiceError('USERNAME_ALREADY_TAKEN', 'Username already taken');
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
@@ -129,13 +130,13 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new ServiceError('INVALID_CREDENTIALS', 'Invalid credentials');
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new ServiceError('INVALID_CREDENTIALS', 'Invalid credentials');
     }
 
     const roles = user.userRoles.map((ur) => ur.role.name);

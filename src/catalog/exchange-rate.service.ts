@@ -1,6 +1,8 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { ServiceError } from '../common/exceptions/service-error.exception';
+import { AppLogger } from '../logger/app-logger';
 
 interface ExchangeRateResponse {
   result: string;
@@ -12,7 +14,6 @@ interface ExchangeRateResponse {
 
 @Injectable()
 export class ExchangeRateService {
-  private readonly logger = new Logger(ExchangeRateService.name);
   private readonly apiKey: string;
   private readonly baseUrl = 'https://v6.exchangerate-api.com/v6';
   private readonly supportedCurrencies = ['USD', 'EUR', 'GBP'];
@@ -21,12 +22,14 @@ export class ExchangeRateService {
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly logger: AppLogger,
   ) {
     const apiKey = this.configService.get<string>('EXCHANGE_RATE_API_KEY');
     if (!apiKey) {
       throw new Error('EXCHANGE_RATE_API_KEY is not defined');
     }
     this.apiKey = apiKey;
+    this.logger.setContext('ExchangeRateService');
   }
 
   async getExchangeRate(targetCurrency: string): Promise<number> {
@@ -54,7 +57,7 @@ export class ExchangeRateService {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         this.logger.error(`Failed to get rate for ${currency}: ${errorMessage}`);
-        throw new ServiceUnavailableException('Exchange rate service temporarily unavailable');
+        throw new ServiceError('EXCHANGE_RATE_UNAVAILABLE', 'Exchange rate service temporarily unavailable');
       }
     }
 
@@ -122,7 +125,7 @@ export class ExchangeRateService {
     });
 
     if (!cached) {
-      throw new ServiceUnavailableException('No cached exchange rate available');
+      throw new ServiceError('EXCHANGE_RATE_UNAVAILABLE', 'No cached exchange rate available');
     }
 
     const hoursSinceUpdate = (Date.now() - cached.updatedAt.getTime()) / (1000 * 60 * 60);
