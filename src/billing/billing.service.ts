@@ -89,7 +89,7 @@ export class BillingService {
     return { url: session.url };
   }
 
-  async getUserSubscriptions(userId: string, query: { page?: number; limit?: number; status?: any }) {
+  async getUserSubscriptions(userId: string, query: { page?: number; limit?: number; status?: SubStatus }) {
     const { page = 1, limit = 10, status } = query;
     const skip = (page - 1) * limit;
 
@@ -106,7 +106,7 @@ export class BillingService {
       this.prisma.subscription.count({ where }),
     ]);
 
-    return { data, total, page, limit, __paginated: true };
+    return { data, total, page, limit };
   }
 
 

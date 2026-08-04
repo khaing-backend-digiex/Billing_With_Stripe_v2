@@ -12,7 +12,7 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
     this.logger.setContext('GlobalExceptionFilter');
   }
 
-  catch(exception: any, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse();
     const request = ctx.getRequest();
@@ -20,7 +20,7 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message: string | object;
     let error: string;
-    let details: any;
+    let details: Record<string, unknown> | string | undefined;
 
     switch (true) {
       case exception instanceof ServiceError:
@@ -33,7 +33,7 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
       case exception instanceof HttpException:
         status = exception.getStatus();
         const exceptionResponse = exception.getResponse();
-        message = typeof exceptionResponse === 'string' ? exceptionResponse : (exceptionResponse as any).message;
+        message = typeof exceptionResponse === 'string' ? exceptionResponse : (exceptionResponse && typeof exceptionResponse === 'object' && 'message' in exceptionResponse ? String((exceptionResponse as Record<string, unknown>).message) : 'Unknown error');
         error = exception.name;
         break;
 
@@ -76,7 +76,7 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
 
     this.logger.error(
       `${request.method} ${request.url} ${status} - ${JSON.stringify(errorResponse)}`,
-      exception?.stack
+      exception instanceof Error ? exception.stack : undefined
     );
 
     response.status(status).json(errorResponse);

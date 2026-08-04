@@ -13,7 +13,7 @@ export class InvoicePaidStrategy implements WebhookStrategyInterface {
   constructor(
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
-  ) {}
+  ) { }
 
   supports(eventType: string): boolean {
     return eventType === 'invoice.paid';
@@ -25,7 +25,10 @@ export class InvoicePaidStrategy implements WebhookStrategyInterface {
 
     this.logger.log(`Processing invoice.paid: ${invoiceId}`);
 
-    const subscriptionId = (invoice as any).subscription as string | undefined;
+    const invoiceWithSub = invoice as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null };
+    const subscriptionId = typeof invoiceWithSub.subscription === 'string'
+      ? invoiceWithSub.subscription
+      : invoiceWithSub.subscription?.id;
 
     if (!subscriptionId) {
       this.logger.warn(`Invoice ${invoiceId} has no subscription (one-time payment)`);

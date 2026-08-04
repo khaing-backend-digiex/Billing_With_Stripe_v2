@@ -20,11 +20,11 @@ export class StripeService {
     const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
 
     if (!secretKey) {
-      throw new Error('STRIPE_SECRET_KEY is not defined');
+      throw new ServiceError(ErrorCode.INTERNAL_ERROR, 'STRIPE_SECRET_KEY is not defined');
     }
 
     if (!webhookSecret) {
-      throw new Error('STRIPE_WEBHOOK_SECRET is not defined');
+      throw new ServiceError(ErrorCode.INTERNAL_ERROR, 'STRIPE_WEBHOOK_SECRET is not defined');
     }
 
     this.webhookSecret = webhookSecret;
@@ -35,7 +35,14 @@ export class StripeService {
   }
 
   private extractErrorMessage(error: unknown): string {
-    if (error instanceof Error) return error.message;
+    if (error instanceof Error) {
+      return error.message;
+    }
+    
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      return String((error as Record<string, unknown>).message);
+    }
+    
     return String(error);
   }
 

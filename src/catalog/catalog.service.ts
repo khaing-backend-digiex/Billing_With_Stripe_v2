@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '../../generated/prisma/client';
+import { Prisma, PlanType } from '../../generated/prisma/client';
 import { StripeService } from '../billing/stripe.service';
 import { ExchangeRateService } from './exchange-rate.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -72,7 +72,7 @@ export class CatalogService {
     };
   }
 
-  async findAllProducts(query: { page?: number; limit?: number; planType?: any; isActive?: boolean }) {
+  async findAllProducts(query: { page?: number; limit?: number; planType?: PlanType; isActive?: boolean }) {
     const { page = 1, limit = 20, planType, isActive } = query;
     const skip = (page - 1) * limit;
 
@@ -95,7 +95,7 @@ export class CatalogService {
       this.prisma.stripeProduct.count({ where }),
     ]);
 
-    return { data, total, page, limit, __paginated: true };
+    return { data, total, page, limit };
   }
 
   async findProductById(id: string) {

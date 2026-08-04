@@ -1,18 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreditService } from './credit.service';
 import { PlanType, SubStatus } from '../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '../constants/plan.constants';
+import { AppLogger } from '../logger/app-logger';
 
 @Injectable()
 export class CreditResetCronService {
-  private readonly logger = new Logger(CreditResetCronService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('CreditResetCronService');
+  }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleMonthlyReset() {

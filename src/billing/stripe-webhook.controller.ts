@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Request } from 'express';
 import { StripeService } from './stripe.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { WebhookStatus } from '../../generated/prisma/client';
+import { WebhookStatus, Prisma } from '../../generated/prisma/client';
 import { SkipTransform } from '../common/decorators/skip-transform.decorator';
 
 @ApiTags('Webhooks')
@@ -37,7 +37,7 @@ export class StripeWebhookController {
       data: {
         stripeEventId: event.id,
         type: event.type,
-        payload: event.data.object as any,
+        payload: event.data.object as Prisma.InputJsonValue,
         status: WebhookStatus.PENDING,
         retryCount: 0,
         maxRetries: 3,

@@ -1,18 +1,21 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import Stripe from 'stripe';
 import { WebhookStrategyInterface } from '../webhook-strategy.interface';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
 import { SubStatus } from '../../../../generated/prisma/client';
 
+import { AppLogger } from '../../../logger/app-logger';
+
 @Injectable()
 export class InvoicePaymentFailedStrategy implements WebhookStrategyInterface {
-  private readonly logger = new Logger(InvoicePaymentFailedStrategy.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('InvoicePaymentFailedStrategy');
+  }
 
   supports(eventType: string): boolean {
     return eventType === 'invoice.payment_failed';
@@ -24,7 +27,10 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategyInterface {
 
     this.logger.log(`Processing invoice.payment_failed: ${invoiceId}`);
 
-    const subscriptionId = (invoice as any).subscription as string | undefined;
+    const invoiceWithSub = invoice as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null };
+    const subscriptionId = typeof invoiceWithSub.subscription === 'string'
+      ? invoiceWithSub.subscription
+      : invoiceWithSub.subscription?.id;
 
     if (!subscriptionId) {
       this.logger.warn(`Invoice ${invoiceId} has no subscription (one-time payment)`);
@@ -42,6 +48,15 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategyInterface {
       return;
     }
 
+    const attemptCount = invoice.attempt_count;
+
+    if (attemptCount < 3) {
+      this.logger.warn(
+        `Payment failed for subscription ${subscription.id} (attempt ${attemptCount}/3). Grace period active.`,
+      );
+      return;
+    }
+
     await this.prisma.$transaction(async (tx) => {
       await tx.subscription.update({
         where: { id: subscription.id },
@@ -56,6 +71,6 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategyInterface {
       });
     });
 
-    this.logger.log(`Payment failed: subscription ${subscription.id} marked as PAST_DUE, credits frozen`);
+    this.logger.log(`Payment failed 3 times: subscription ${subscription.id} marked as PAST_DUE, credits frozen`);
   }
 }

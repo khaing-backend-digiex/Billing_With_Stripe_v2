@@ -2,7 +2,7 @@ export class ServiceError extends Error {
   constructor(
     public readonly code: string,
     public readonly message: string,
-    public readonly details?: any
+    public readonly details?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'ServiceError';

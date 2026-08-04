@@ -5,7 +5,7 @@ import { PinoLogger } from 'nestjs-pino';
 export class AppLogger implements LoggerService {
   private context?: string;
 
-  constructor(private readonly pinoLogger: PinoLogger) {}
+  constructor(private readonly pinoLogger: PinoLogger) { }
 
   setContext(context: string) {
     this.context = context;

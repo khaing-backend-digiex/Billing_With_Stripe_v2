@@ -3,7 +3,6 @@ import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { StripeService } from './stripe.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { CreditModule } from '../credit/credit.module';
 import { AuthModule } from '../auth/auth.module';
 import { WebhookStrategyFactory } from './strategies/webhook-strategy.factory';
@@ -33,7 +32,6 @@ const webhookStrategies = [
   providers: [
     BillingService,
     StripeService,
-    PrismaService,
     ...webhookStrategies,
     {
       provide: 'WEBHOOK_STRATEGIES',

@@ -1,24 +1,40 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhookStrategyFactory } from './strategies/webhook-strategy.factory';
-import { WebhookStatus } from '../../generated/prisma/client';
+import { WebhookStatus, WebhookEvent } from '../../generated/prisma/client';
+
+import { AppLogger } from '../logger/app-logger';
 
 @Injectable()
 export class WebhookProcessorService {
-  private readonly logger = new Logger(WebhookProcessorService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly strategyFactory: WebhookStrategyFactory,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('WebhookProcessorService');
+  }
 
   @Cron(CronExpression.EVERY_30_SECONDS)
   async processPendingEvents() {
-    const events = await this.prisma.$queryRaw`
-      SELECT * FROM webhook_events
-      WHERE status = ${WebhookStatus.PENDING}
+    const events = await this.prisma.$queryRaw<WebhookEvent[]>`
+      SELECT 
+        id, 
+        stripe_event_id AS "stripeEventId", 
+        type, 
+        payload, 
+        status, 
+        retry_count AS "retryCount", 
+        max_retries AS "maxRetries", 
+        last_error AS "lastError", 
+        next_retry_at AS "nextRetryAt", 
+        processed_at AS "processedAt", 
+        created_at AS "createdAt", 
+        updated_at AS "updatedAt"
+      FROM webhook_events
+      WHERE status = ${WebhookStatus.PENDING}::"WebhookStatus"
       AND next_retry_at <= NOW()
       ORDER BY next_retry_at ASC
       LIMIT 20
@@ -36,7 +52,7 @@ export class WebhookProcessorService {
     }
   }
 
-  private async processEvent(event: any) {
+  private async processEvent(event: WebhookEvent) {
     const strategy = this.strategyFactory.getStrategy(event.type);
 
     if (!strategy) {
@@ -81,7 +97,7 @@ export class WebhookProcessorService {
     }
   }
 
-  private async handleFailure(event: any, error: Error) {
+  private async handleFailure(event: WebhookEvent, error: Error) {
     const newRetryCount = event.retryCount + 1;
     const maxRetries = event.maxRetries;
 

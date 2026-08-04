@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { WebhookStrategyInterface } from '../webhook-strategy.interface';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
-import { PlanType, SubStatus } from '../../../../generated/prisma/client';
+import { PlanType, SubStatus, Prisma } from '../../../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '../../../constants/plan.constants';
 
 const STRIPE_STATUS_MAP: Partial<Record<Stripe.Subscription.Status, SubStatus>> = {
@@ -52,7 +52,7 @@ export class CustomerSubscriptionUpdatedStrategy implements WebhookStrategyInter
     const currentPeriodEnd = new Date(subscription.items.data[0].current_period_end * 1000);
 
     await this.prisma.$transaction(async (tx) => {
-      const updateData: any = {
+      const updateData: Prisma.SubscriptionUpdateInput = {
         currentPeriodStart,
         currentPeriodEnd,
       };
