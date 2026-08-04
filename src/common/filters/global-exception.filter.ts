@@ -1,9 +1,9 @@
 import { Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { Prisma } from '../../../generated/prisma/client';
-import { ServiceError } from '../exceptions/service-error.exception';
-import { ErrorCode } from '../enums/error-code.enum';
-import { AppLogger } from '../../logger/app-logger';
+import { ServiceError } from '@/common/exceptions/service-error.exception';
+import { ErrorCode } from '@/common/enums/error-code.enum';
+import { AppLogger } from '@/logger/app-logger';
 
 @Catch()
 export class GlobalExceptionFilter extends BaseExceptionFilter {

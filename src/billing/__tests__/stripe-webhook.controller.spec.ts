@@ -1,12 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { StripeWebhookController } from '../stripe-webhook.controller';
-import { PaymentService } from '../payment.service';
-import { PrismaService } from '../../prisma/prisma.service';
-import { AppLogger } from '../../logger/app-logger';
-import { ServiceError } from '../../common/exceptions/service-error.exception';
+import { StripeWebhookController } from '@/billing/stripe-webhook.controller';
+import { PaymentService } from '@/billing/payment.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { AppLogger } from '@/logger/app-logger';
+import { ServiceError } from '@/common/exceptions/service-error.exception';
 import { WebhookStatus } from '../../../generated/prisma/client';
-import { WebhookProcessorService } from '../webhook-processor.service';
-import { WebhookEvent } from '../payments/types/payment.types';
+import { WebhookProcessorService } from '@/billing/webhook-processor.service';
+import { WebhookEvent } from '@/billing/payments/types/payment.types';
 
 describe('StripeWebhookController', () => {
   let controller: StripeWebhookController;

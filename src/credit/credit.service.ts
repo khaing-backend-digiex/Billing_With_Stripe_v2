@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
-import { AppLogger } from '../logger/app-logger';
-import { ErrorCode } from '../common/enums/error-code.enum';
-import { ServiceError } from '../common/exceptions/service-error.exception';
+import { AppLogger } from '@/logger/app-logger';
+import { ErrorCode } from '@/common/enums/error-code.enum';
+import { ServiceError } from '@/common/exceptions/service-error.exception';
 
 @Injectable()
 export class CreditService {

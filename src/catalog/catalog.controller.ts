@@ -1,14 +1,14 @@
 import { Controller, Post, Get, Put, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { CatalogService } from './catalog.service';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
-import { ProductListQueryDto } from './dto/catalog-query.dto';
-import { ProductWithPricesResponseDto, ExchangeRateResponseDto } from './dto/catalog-response.dto';
-import { AuthGuard } from '../auth/guards/auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
-import { Permission } from '../auth/enums/permission.enum';
+import { CatalogService } from '@/catalog/catalog.service';
+import { CreateProductDto } from '@/catalog/dto/create-product.dto';
+import { UpdateProductDto } from '@/catalog/dto/update-product.dto';
+import { ProductListQueryDto } from '@/catalog/dto/catalog-query.dto';
+import { ProductWithPricesResponseDto, ExchangeRateResponseDto } from '@/catalog/dto/catalog-response.dto';
+import { AuthGuard } from '@/auth/guards/auth.guard';
+import { PermissionsGuard } from '@/auth/guards/permissions.guard';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { Permission } from '@/auth/enums/permission.enum';
 
 @ApiTags('Catalog')
 @Controller('catalog')

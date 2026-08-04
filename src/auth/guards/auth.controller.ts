@@ -1,10 +1,10 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, Res, Req, UnauthorizedException } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { AuthService } from '../auth.service';
-import { RegisterDto } from '../dto/register.dto';
-import { LoginDto } from '../dto/login.dto';
-import { RegisterResponseDto, LoginResponseDto } from '../dto/auth-response.dto';
+import { AuthService } from '@/auth/auth.service';
+import { RegisterDto } from '@/auth/dto/register.dto';
+import { LoginDto } from '@/auth/dto/login.dto';
+import { RegisterResponseDto, LoginResponseDto } from '@/auth/dto/auth-response.dto';
 
 @ApiTags('Auth')
 @Controller('auth')

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
-import { WebhookStrategy } from './webhook-strategy.interface';
+import { WebhookStrategy } from '@/billing/strategies/webhook-strategy.interface';
 
 @Injectable()
 export class WebhookStrategyFactory {

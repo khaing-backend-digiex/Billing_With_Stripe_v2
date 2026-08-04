@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PermissionsGuard } from './permissions.guard';
+import { PermissionsGuard } from '@/auth/guards/permissions.guard';
 
 describe('PermissionsGuard', () => {
   let guard: PermissionsGuard;

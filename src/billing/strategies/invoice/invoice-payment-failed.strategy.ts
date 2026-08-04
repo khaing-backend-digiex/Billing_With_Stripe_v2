@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { WebhookStrategy } from '../webhook-strategy.interface';
-import { AppLogger } from '../../../logger/app-logger';
-import { PaymentService } from '../../payment.service';
-import { WebhookEvent } from '../../payments/types/payment.types';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { CreditService } from '../../../credit/credit.service';
-import { MAX_INVOICE_RETRY_ATTEMPTS } from '../../../common/constants/billing.constants';
+import { WebhookStrategy } from '@/billing/strategies/webhook-strategy.interface';
+import { AppLogger } from '@/logger/app-logger';
+import { PaymentService } from '@/billing/payment.service';
+import { WebhookEvent } from '@/billing/payments/types/payment.types';
+import { PrismaService } from '@/prisma/prisma.service';
+import { CreditService } from '@/credit/credit.service';
+import { MAX_INVOICE_RETRY_ATTEMPTS } from '@/common/constants/billing.constants';
 import { SubStatus } from '../../../../generated/prisma/client';
 @Injectable()
 export class InvoicePaymentFailedStrategy implements WebhookStrategy {

@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { WebhookStrategy } from '../webhook-strategy.interface';
-import { PaymentService } from '../../payment.service';
-import { WebhookEvent } from '../../payments/types/payment.types';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { CreditService } from '../../../credit/credit.service';
+import { WebhookStrategy } from '@/billing/strategies/webhook-strategy.interface';
+import { PaymentService } from '@/billing/payment.service';
+import { WebhookEvent } from '@/billing/payments/types/payment.types';
+import { PrismaService } from '@/prisma/prisma.service';
+import { CreditService } from '@/credit/credit.service';
 import { PlanType, SubStatus, Prisma } from '../../../../generated/prisma/client';
-import { PLAN_CREDIT_LIMITS } from '../../../common/constants/plan.constants';
+import { PLAN_CREDIT_LIMITS } from '@/common/constants/plan.constants';
 
 const STRIPE_STATUS_MAP: Record<string, SubStatus> = {
   active: SubStatus.ACTIVE,

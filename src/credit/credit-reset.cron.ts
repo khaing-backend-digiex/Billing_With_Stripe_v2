@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreditService } from './credit.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { CreditService } from '@/credit/credit.service';
 import { PlanType, SubStatus } from '../../generated/prisma/client';
-import { PLAN_CREDIT_LIMITS } from '../common/constants/plan.constants';
-import { AppLogger } from '../logger/app-logger';
+import { PLAN_CREDIT_LIMITS } from '@/common/constants/plan.constants';
+import { AppLogger } from '@/logger/app-logger';
 
 @Injectable()
 export class CreditResetCronService {

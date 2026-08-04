@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { StripeAdapter } from '../payments/adapters/stripe.adapter';
-import { AppLogger } from '../../logger/app-logger';
+import { StripeAdapter } from '@/billing/payments/adapters/stripe.adapter';
+import { AppLogger } from '@/logger/app-logger';
 import Stripe from 'stripe';
 
 jest.mock('stripe');

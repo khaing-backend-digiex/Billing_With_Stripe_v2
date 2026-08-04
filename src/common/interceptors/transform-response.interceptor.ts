@@ -7,7 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { SKIP_TRANSFORM_KEY } from '../decorators/skip-transform.decorator';
+import { SKIP_TRANSFORM_KEY } from '@/common/decorators/skip-transform.decorator';
 
 @Injectable()
 export class TransformResponseInterceptor implements NestInterceptor {

@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { AppLogger } from '../logger/app-logger';
+import { AppLogger } from '@/logger/app-logger';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service';
-import { PaymentService } from '../billing/payment.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
+import { PrismaService } from '@/prisma/prisma.service';
+import { PaymentService } from '@/billing/payment.service';
+import { RegisterDto } from '@/auth/dto/register.dto';
+import { LoginDto } from '@/auth/dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { PredefinedRole } from '../common/constants/predefined-role';
-import { PLAN_CREDIT_LIMITS } from '../common/constants/plan.constants';
-import { ErrorCode } from '../common/enums/error-code.enum';
-import { ServiceError } from '../common/exceptions/service-error.exception';
+import { PredefinedRole } from '@/common/constants/predefined-role';
+import { PLAN_CREDIT_LIMITS } from '@/common/constants/plan.constants';
+import { ErrorCode } from '@/common/enums/error-code.enum';
+import { ServiceError } from '@/common/exceptions/service-error.exception';
 import { PlanType, SubStatus } from '../../generated/prisma/client';
 
 @Injectable()

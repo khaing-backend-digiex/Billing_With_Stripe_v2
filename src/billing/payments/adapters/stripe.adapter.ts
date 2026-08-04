@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
-import { IPaymentAdapter } from '../types/payment-adapter.interface';
+import { IPaymentAdapter } from '@/billing/payments/types/payment-adapter.interface';
 import {
   PaymentCustomer,
   PaymentSubscription,
@@ -15,10 +15,10 @@ import {
   WebhookEvent,
   PaymentProduct,
   PaymentPrice,
-} from '../types/payment.types';
-import { AppLogger } from '../../../logger/app-logger';
-import { ErrorCode } from '../../../common/enums/error-code.enum';
-import { ServiceError } from '../../../common/exceptions/service-error.exception';
+} from '@/billing/payments/types/payment.types';
+import { AppLogger } from '@/logger/app-logger';
+import { ErrorCode } from '@/common/enums/error-code.enum';
+import { ServiceError } from '@/common/exceptions/service-error.exception';
 
 @Injectable()
 export class StripeAdapter implements IPaymentAdapter {

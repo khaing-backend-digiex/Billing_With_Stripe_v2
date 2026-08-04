@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CatalogService } from '../catalog.service';
-import { ExchangeRateService } from '../exchange-rate.service';
-import { PaymentService } from '../../billing/payment.service';
-import { PrismaService } from '../../prisma/prisma.service';
-import { AppLogger } from '../../logger/app-logger';
+import { CatalogService } from '@/catalog/catalog.service';
+import { ExchangeRateService } from '@/catalog/exchange-rate.service';
+import { PaymentService } from '@/billing/payment.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { AppLogger } from '@/logger/app-logger';
 import { PlanType } from '../../../generated/prisma/client';
 
 describe('CatalogService', () => {

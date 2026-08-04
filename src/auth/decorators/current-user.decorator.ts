@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { AuthUser } from '../interfaces/auth-request.interface';
+import { AuthUser } from '@/auth/interfaces/auth-request.interface';
 
 export const extractUser = (data: keyof AuthUser | undefined, ctx: ExecutionContext) => {
   const request = ctx.switchToHttp().getRequest();

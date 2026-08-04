@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../prisma/prisma.service';
-import { ErrorCode } from '../common/enums/error-code.enum';
-import { ServiceError } from '../common/exceptions/service-error.exception';
-import { AppLogger } from '../logger/app-logger';
+import { PrismaService } from '@/prisma/prisma.service';
+import { ErrorCode } from '@/common/enums/error-code.enum';
+import { ServiceError } from '@/common/exceptions/service-error.exception';
+import { AppLogger } from '@/logger/app-logger';
 
 interface ExchangeRateResponse {
   result: string;

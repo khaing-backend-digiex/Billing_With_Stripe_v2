@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { WebhookStrategyFactory } from '../../strategies/webhook-strategy.factory';
-import { CheckoutSessionCompletedStrategy } from '../../strategies/checkout/checkout-session-completed.strategy';
-import { InvoicePaidStrategy } from '../../strategies/invoice/invoice-paid.strategy';
-import { InvoicePaymentFailedStrategy } from '../../strategies/invoice/invoice-payment-failed.strategy';
-import { CustomerSubscriptionUpdatedStrategy } from '../../strategies/subscription/customer-subscription-updated.strategy';
-import { CustomerSubscriptionDeletedStrategy } from '../../strategies/subscription/customer-subscription-deleted.strategy';
+import { WebhookStrategyFactory } from '@/billing/strategies/webhook-strategy.factory';
+import { CheckoutSessionCompletedStrategy } from '@/billing/strategies/checkout/checkout-session-completed.strategy';
+import { InvoicePaidStrategy } from '@/billing/strategies/invoice/invoice-paid.strategy';
+import { InvoicePaymentFailedStrategy } from '@/billing/strategies/invoice/invoice-payment-failed.strategy';
+import { CustomerSubscriptionUpdatedStrategy } from '@/billing/strategies/subscription/customer-subscription-updated.strategy';
+import { CustomerSubscriptionDeletedStrategy } from '@/billing/strategies/subscription/customer-subscription-deleted.strategy';
 
 describe('WebhookStrategyFactory', () => {
   let factory: WebhookStrategyFactory;

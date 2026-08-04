@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CheckoutSessionCompletedStrategy } from '../../strategies/checkout/checkout-session-completed.strategy';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { CreditService } from '../../../credit/credit.service';
-import { PaymentService } from '../../payment.service';
-import { WebhookEvent } from '../../payments/types/payment.types';
+import { CheckoutSessionCompletedStrategy } from '@/billing/strategies/checkout/checkout-session-completed.strategy';
+import { PrismaService } from '@/prisma/prisma.service';
+import { CreditService } from '@/credit/credit.service';
+import { PaymentService } from '@/billing/payment.service';
+import { WebhookEvent } from '@/billing/payments/types/payment.types';
 
 describe('CheckoutSessionCompletedStrategy', () => {
   let strategy: CheckoutSessionCompletedStrategy;

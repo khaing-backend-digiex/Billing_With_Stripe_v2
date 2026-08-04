@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { PaymentService } from './payment.service';
-import { CreditService } from '../credit/credit.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { PaymentService } from '@/billing/payment.service';
+import { CreditService } from '@/credit/credit.service';
 import { Prisma, PlanType, SubStatus } from '../../generated/prisma/client';
-import { PLAN_CREDIT_LIMITS, ADDON_CREDITS_PER_PURCHASE } from '../common/constants/plan.constants';
-import { AppLogger } from '../logger/app-logger';
-import { ErrorCode } from '../common/enums/error-code.enum';
-import { ServiceError } from '../common/exceptions/service-error.exception';
+import { PLAN_CREDIT_LIMITS, ADDON_CREDITS_PER_PURCHASE } from '@/common/constants/plan.constants';
+import { AppLogger } from '@/logger/app-logger';
+import { ErrorCode } from '@/common/enums/error-code.enum';
+import { ServiceError } from '@/common/exceptions/service-error.exception';
 
 @Injectable()
 export class BillingService {

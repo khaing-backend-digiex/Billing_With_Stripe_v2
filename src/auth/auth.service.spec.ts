@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
-import { ServiceError } from '../common/exceptions/service-error.exception';
-import { AuthService } from './auth.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { ServiceError } from '@/common/exceptions/service-error.exception';
+import { AuthService } from '@/auth/auth.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import { PaymentService } from '../billing/payment.service';
-import { AppLogger } from '../logger/app-logger';
+import { PaymentService } from '@/billing/payment.service';
+import { AppLogger } from '@/logger/app-logger';
 import * as bcrypt from 'bcrypt';
 
 describe('AuthService', () => {

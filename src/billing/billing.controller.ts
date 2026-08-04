@@ -1,15 +1,15 @@
 import { Controller, Post, Get, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { BillingService } from './billing.service';
-import { CreateSubscriptionCheckoutDto } from './dto/create-subscription-checkout.dto';
-import { CreateAddonCheckoutDto } from './dto/create-addon-checkout.dto';
-import { SubscriptionListQueryDto } from './dto/billing-query.dto';
-import { CheckoutUrlResponseDto, SubscriptionResponseDto } from './dto/billing-response.dto';
-import { AuthGuard } from '../auth/guards/auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Permission } from '../auth/enums/permission.enum';
+import { BillingService } from '@/billing/billing.service';
+import { CreateSubscriptionCheckoutDto } from '@/billing/dto/create-subscription-checkout.dto';
+import { CreateAddonCheckoutDto } from '@/billing/dto/create-addon-checkout.dto';
+import { SubscriptionListQueryDto } from '@/billing/dto/billing-query.dto';
+import { CheckoutUrlResponseDto, SubscriptionResponseDto } from '@/billing/dto/billing-response.dto';
+import { AuthGuard } from '@/auth/guards/auth.guard';
+import { PermissionsGuard } from '@/auth/guards/permissions.guard';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { CurrentUser } from '@/auth/decorators/current-user.decorator';
+import { Permission } from '@/auth/enums/permission.enum';
 
 @ApiTags('Billing')
 @Controller('billing')

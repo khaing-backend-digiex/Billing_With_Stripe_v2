@@ -1,4 +1,4 @@
-import { WebhookEvent } from '../payments/types/payment.types';
+import { WebhookEvent } from '@/billing/payments/types/payment.types';
 
 export interface WebhookStrategy {
   supports(eventType: string): boolean;

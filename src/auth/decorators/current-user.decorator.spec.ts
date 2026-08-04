@@ -1,5 +1,5 @@
 import { ExecutionContext } from '@nestjs/common';
-import { extractUser } from './current-user.decorator';
+import { extractUser } from '@/auth/decorators/current-user.decorator';
 
 describe('CurrentUser Decorator', () => {
   const mockUser = {

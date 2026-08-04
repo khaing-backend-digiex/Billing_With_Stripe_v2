@@ -1,13 +1,13 @@
 import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { CreditService } from './credit.service';
-import { ConsumeCreditsDto } from './dto/consume-credits.dto';
-import { CreditBalanceResponseDto } from './dto/credit-response.dto';
-import { AuthGuard } from '../auth/guards/auth.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Permission } from '../auth/enums/permission.enum';
+import { CreditService } from '@/credit/credit.service';
+import { ConsumeCreditsDto } from '@/credit/dto/consume-credits.dto';
+import { CreditBalanceResponseDto } from '@/credit/dto/credit-response.dto';
+import { AuthGuard } from '@/auth/guards/auth.guard';
+import { PermissionsGuard } from '@/auth/guards/permissions.guard';
+import { RequirePermissions } from '@/auth/decorators/require-permissions.decorator';
+import { CurrentUser } from '@/auth/decorators/current-user.decorator';
+import { Permission } from '@/auth/enums/permission.enum';
 
 @ApiTags('Credits')
 @Controller('credits')

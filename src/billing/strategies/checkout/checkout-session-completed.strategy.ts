@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PaymentService } from '../../payment.service';
-import { WebhookEvent, PaymentSession } from '../../payments/types/payment.types';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { CreditService } from '../../../credit/credit.service';
+import { PaymentService } from '@/billing/payment.service';
+import { WebhookEvent, PaymentSession } from '@/billing/payments/types/payment.types';
+import { PrismaService } from '@/prisma/prisma.service';
+import { CreditService } from '@/credit/credit.service';
 import { PlanType, SubStatus } from '../../../../generated/prisma/client';
-import { PLAN_CREDIT_LIMITS } from '../../../common/constants/plan.constants';
-import { WebhookStrategy } from '../webhook-strategy.interface';
+import { PLAN_CREDIT_LIMITS } from '@/common/constants/plan.constants';
+import { WebhookStrategy } from '@/billing/strategies/webhook-strategy.interface';
 
 @Injectable()
 export class CheckoutSessionCompletedStrategy implements WebhookStrategy {

@@ -11,7 +11,7 @@ import {
   WebhookEvent,
   PaymentProduct,
   PaymentPrice,
-} from './payment.types';
+} from '@/billing/payments/types/payment.types';
 
 export interface IPaymentAdapter {
   createProduct(name: string, metadata?: Record<string, string>): Promise<PaymentProduct>;

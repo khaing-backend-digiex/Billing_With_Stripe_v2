@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { WebhookProcessorService } from '../webhook-processor.service';
-import { PrismaService } from '../../prisma/prisma.service';
-import { WebhookStrategyFactory } from '../strategies/webhook-strategy.factory';
+import { WebhookProcessorService } from '@/billing/webhook-processor.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { WebhookStrategyFactory } from '@/billing/strategies/webhook-strategy.factory';
 import { WebhookStatus } from '../../../generated/prisma/client';
-import { AppLogger } from '../../logger/app-logger';
+import { AppLogger } from '@/logger/app-logger';
 
 describe('WebhookProcessorService', () => {
   let service: WebhookProcessorService;

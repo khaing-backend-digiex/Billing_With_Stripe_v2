@@ -1,5 +1,5 @@
 import { IsEmail, IsString, MinLength, IsDateString, IsNotEmpty } from 'class-validator';
-import { IsPastDateString } from '../decorators/is-past-date.decorator';
+import { IsPastDateString } from '@/auth/decorators/is-past-date.decorator';
 
 export class RegisterDto {
   @IsEmail()

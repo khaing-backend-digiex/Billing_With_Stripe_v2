@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CreditService } from '../credit.service';
-import { PrismaService } from '../../prisma/prisma.service';
-import { AppLogger } from '../../logger/app-logger';
-import { ServiceError } from '../../common/exceptions/service-error.exception';
+import { CreditService } from '@/credit/credit.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { AppLogger } from '@/logger/app-logger';
+import { ServiceError } from '@/common/exceptions/service-error.exception';
 
 describe('CreditService', () => {
   let service: CreditService;

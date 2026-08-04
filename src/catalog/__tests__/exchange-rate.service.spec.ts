@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { ExchangeRateService } from '../exchange-rate.service';
-import { PrismaService } from '../../prisma/prisma.service';
-import { AppLogger } from '../../logger/app-logger';
-import { ServiceError } from '../../common/exceptions/service-error.exception';
+import { ExchangeRateService } from '@/catalog/exchange-rate.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { AppLogger } from '@/logger/app-logger';
+import { ServiceError } from '@/common/exceptions/service-error.exception';
 describe('ExchangeRateService', () => {
   let service: ExchangeRateService;
   let prisma: PrismaService;

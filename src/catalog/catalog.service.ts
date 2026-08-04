@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import { Prisma, PlanType } from '../../generated/prisma/client';
-import { ExchangeRateService } from './exchange-rate.service';
-import { PaymentService } from '../billing/payment.service';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
-import { ErrorCode } from '../common/enums/error-code.enum';
-import { ServiceError } from '../common/exceptions/service-error.exception';
+import { ExchangeRateService } from '@/catalog/exchange-rate.service';
+import { PaymentService } from '@/billing/payment.service';
+import { CreateProductDto } from '@/catalog/dto/create-product.dto';
+import { UpdateProductDto } from '@/catalog/dto/update-product.dto';
+import { ErrorCode } from '@/common/enums/error-code.enum';
+import { ServiceError } from '@/common/exceptions/service-error.exception';
 
 @Injectable()
 export class CatalogService {

@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from '../prisma/prisma.service';
-import { WebhookStrategyFactory } from './strategies/webhook-strategy.factory';
+import { PrismaService } from '@/prisma/prisma.service';
+import { WebhookStrategyFactory } from '@/billing/strategies/webhook-strategy.factory';
 import { WebhookStatus, WebhookEvent as PrismaWebhookEvent } from '../../generated/prisma/client';
-import { WebhookEvent as GenericWebhookEvent } from './payments/types/payment.types';
+import { WebhookEvent as GenericWebhookEvent } from '@/billing/payments/types/payment.types';
 
-import { AppLogger } from '../logger/app-logger';
+import { AppLogger } from '@/logger/app-logger';
 
 @Injectable()
 export class WebhookProcessorService {
