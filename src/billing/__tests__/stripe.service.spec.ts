@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { StripeService } from '../stripe.service';
+import { StripeAdapter } from '../payments/adapters/stripe.adapter';
 import { AppLogger } from '../../logger/app-logger';
 import Stripe from 'stripe';
 
 jest.mock('stripe');
 
-describe('StripeService', () => {
-  let service: StripeService;
+describe('StripeAdapter', () => {
+  let service: StripeAdapter;
   let stripeMock: jest.Mocked<Stripe>;
 
   const mockConfigService = {
@@ -30,7 +30,7 @@ describe('StripeService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        StripeService,
+        StripeAdapter,
         {
           provide: ConfigService,
           useValue: mockConfigService,
@@ -42,9 +42,9 @@ describe('StripeService', () => {
       ],
     }).compile();
 
-    service = module.get<StripeService>(StripeService);
+    service = module.get<StripeAdapter>(StripeAdapter);
     stripeMock = service['stripe'] as jest.Mocked<Stripe>;
-    
+
     // Initialize nested mock objects
     stripeMock.products = {
       create: jest.fn(),
@@ -159,11 +159,12 @@ describe('StripeService', () => {
       const mockCustomer = { id: 'cus_123', email: 'test@example.com' } as Stripe.Customer;
       stripeMock.customers.create = jest.fn().mockResolvedValue(mockCustomer);
 
-      const result = await service.createCustomer('test@example.com', { userId: 'user_123' });
+      const result = await service.createCustomer('test@example.com', 'Test User', { userId: 'user_123' });
 
       expect(result).toEqual(mockCustomer);
       expect(stripeMock.customers.create).toHaveBeenCalledWith({
         email: 'test@example.com',
+        name: 'Test User',
         metadata: { userId: 'user_123' },
       });
     });
@@ -174,11 +175,11 @@ describe('StripeService', () => {
       const mockSubscription = { id: 'sub_123', status: 'active' } as Stripe.Subscription;
       stripeMock.subscriptions.create = jest.fn().mockResolvedValue(mockSubscription);
 
-      const result = await service.createSubscription({
-        customerId: 'cus_123',
-        priceId: 'price_123',
-        metadata: { userId: 'user_123' },
-      });
+      const result = await service.createSubscription(
+        'cus_123',
+        'price_123',
+        { userId: 'user_123' }
+      );
 
       expect(result).toEqual(mockSubscription);
       expect(stripeMock.subscriptions.create).toHaveBeenCalledWith({
@@ -195,9 +196,9 @@ describe('StripeService', () => {
         id: 'sub_123',
         items: { data: [{ id: 'si_123' }] },
       } as unknown as Stripe.Subscription;
-      
+
       const mockUpdatedSubscription = { id: 'sub_123', status: 'active' } as Stripe.Subscription;
-      
+
       stripeMock.subscriptions.retrieve = jest.fn().mockResolvedValue(mockSubscription);
       stripeMock.subscriptions.update = jest.fn().mockResolvedValue(mockUpdatedSubscription);
 
@@ -219,7 +220,7 @@ describe('StripeService', () => {
       const mockSubscription = { id: 'sub_123', status: 'canceled' } as Stripe.Subscription;
       stripeMock.subscriptions.cancel = jest.fn().mockResolvedValue(mockSubscription);
 
-      const result = await service.cancelSubscription('sub_123');
+      const result = await service.cancelSubscriptionNow('sub_123');
 
       expect(result).toEqual(mockSubscription);
       expect(stripeMock.subscriptions.cancel).toHaveBeenCalledWith('sub_123');
@@ -231,7 +232,7 @@ describe('StripeService', () => {
       const mockEvent = { id: 'evt_123', type: 'checkout.session.completed' } as Stripe.Event;
       stripeMock.webhooks.constructEvent = jest.fn().mockReturnValue(mockEvent);
 
-      const result = service.verifyWebhookSignature('payload', 'signature');
+      const result = service.constructWebhookEvent('payload', 'signature');
 
       expect(result).toEqual(mockEvent);
       expect(stripeMock.webhooks.constructEvent).toHaveBeenCalledWith(
@@ -250,7 +251,7 @@ describe('StripeService', () => {
           { id: 'price_456', active: true },
         ],
       } as unknown as Stripe.ApiList<Stripe.Price>;
-      
+
       stripeMock.prices.list = jest.fn().mockResolvedValue(mockPrices);
 
       const result = await service.listPrices('prod_123');

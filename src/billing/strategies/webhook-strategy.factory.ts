@@ -1,21 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
-import { WebhookStrategyInterface } from './webhook-strategy.interface';
+import { WebhookStrategy } from './webhook-strategy.interface';
 
 @Injectable()
 export class WebhookStrategyFactory {
   private readonly logger = new Logger(WebhookStrategyFactory.name);
-  private readonly strategies: WebhookStrategyInterface[];
+  private readonly strategies: WebhookStrategy[];
 
   constructor(
     @Inject('WEBHOOK_STRATEGIES')
-    strategies: WebhookStrategyInterface[],
+    strategies: WebhookStrategy[],
   ) {
     this.strategies = strategies;
     this.validateNoDuplicates();
   }
 
-  getStrategy(eventType: string): WebhookStrategyInterface | null {
+  getStrategy(eventType: string): WebhookStrategy | null {
     return this.strategies.find((s) => s.supports(eventType)) ?? null;
   }
 
@@ -35,7 +35,7 @@ export class WebhookStrategyFactory {
     }
   }
 
-  private getSupportedTypes(strategy: WebhookStrategyInterface): string[] {
+  private getSupportedTypes(strategy: WebhookStrategy): string[] {
     const knownTypes = [
       'checkout.session.completed',
       'checkout.session.expired',

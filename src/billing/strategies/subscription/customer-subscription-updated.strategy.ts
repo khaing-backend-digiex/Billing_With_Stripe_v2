@@ -1,12 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import Stripe from 'stripe';
-import { WebhookStrategyInterface } from '../webhook-strategy.interface';
+import { WebhookStrategy } from '../webhook-strategy.interface';
+import { PaymentService } from '../../payment.service';
+import { WebhookEvent } from '../../payments/types/payment.types';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
 import { PlanType, SubStatus, Prisma } from '../../../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '../../../constants/plan.constants';
 
-const STRIPE_STATUS_MAP: Partial<Record<Stripe.Subscription.Status, SubStatus>> = {
+const STRIPE_STATUS_MAP: Record<string, SubStatus> = {
   active: SubStatus.ACTIVE,
   past_due: SubStatus.PAST_DUE,
   canceled: SubStatus.CANCELED,
@@ -15,20 +16,21 @@ const STRIPE_STATUS_MAP: Partial<Record<Stripe.Subscription.Status, SubStatus>> 
 };
 
 @Injectable()
-export class CustomerSubscriptionUpdatedStrategy implements WebhookStrategyInterface {
+export class CustomerSubscriptionUpdatedStrategy implements WebhookStrategy {
   private readonly logger = new Logger(CustomerSubscriptionUpdatedStrategy.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
+    private readonly paymentService: PaymentService,
   ) {}
 
   supports(eventType: string): boolean {
     return eventType === 'customer.subscription.updated';
   }
 
-  async handle(event: Stripe.Event): Promise<void> {
-    const subscription = event.data.object as Stripe.Subscription;
+  async handle(event: WebhookEvent): Promise<void> {
+    const subscription = this.paymentService.mapRawSubscription(event.payload);
     const stripeSubscriptionId = subscription.id;
 
     this.logger.log(`Processing customer.subscription.updated: ${stripeSubscriptionId}`);
@@ -45,11 +47,11 @@ export class CustomerSubscriptionUpdatedStrategy implements WebhookStrategyInter
     const stripeStatus = subscription.status;
     const newStatus = this.mapStripeStatus(stripeStatus);
 
-    const priceMetadata = subscription.items.data[0]?.price?.metadata;
+    const priceMetadata = subscription.items[0]?.priceMetadata;
     const newPlanType = priceMetadata?.planType as PlanType | undefined;
 
-    const currentPeriodStart = new Date(subscription.items.data[0].current_period_start * 1000);
-    const currentPeriodEnd = new Date(subscription.items.data[0].current_period_end * 1000);
+    const currentPeriodStart = new Date(subscription.currentPeriodStart * 1000);
+    const currentPeriodEnd = new Date(subscription.currentPeriodEnd * 1000);
 
     await this.prisma.$transaction(async (tx) => {
       const updateData: Prisma.SubscriptionUpdateInput = {
@@ -79,7 +81,7 @@ export class CustomerSubscriptionUpdatedStrategy implements WebhookStrategyInter
     this.logger.log(`Subscription updated: ${localSubscription.id}`);
   }
 
-  private mapStripeStatus(stripeStatus: Stripe.Subscription.Status): SubStatus {
+  private mapStripeStatus(stripeStatus: string): SubStatus {
     return STRIPE_STATUS_MAP[stripeStatus] ?? SubStatus.ACTIVE;
   }
 }

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AppLogger } from '../logger/app-logger';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { StripeService } from '../billing/stripe.service';
+import { PaymentService } from '../billing/payment.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
@@ -17,7 +17,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-    private readonly stripeService: StripeService,
+    private readonly paymentService: PaymentService,
     private readonly logger: AppLogger,
   ) {
     this.logger.setContext('AuthService');
@@ -51,7 +51,7 @@ export class AuthService {
   }
 
   private async provisionStripeResources(email: string) {
-    const customer = await this.stripeService.createCustomer(email);
+    const customer = await this.paymentService.createCustomer(email);
 
     const freePrice = await this.prisma.stripePrice.findFirst({
       where: {
@@ -64,7 +64,7 @@ export class AuthService {
       return { customerId: customer.id, subscriptionId: '' };
     }
 
-    const subscription = await this.stripeService.createSubscription({
+    const subscription = await this.paymentService.createSubscription({
       customerId: customer.id,
       priceId: freePrice.stripePriceId,
       metadata: { planType: PlanType.FREE },
@@ -128,7 +128,7 @@ export class AuthService {
   private async cleanupStripeResources(subscriptionId: string) {
     if (!subscriptionId) return;
     try {
-      await this.stripeService.cancelSubscription(subscriptionId);
+      await this.paymentService.cancelSubscription(subscriptionId);
     } catch (cleanupError) {
       this.logger.error(
         `Failed to cleanup Stripe subscription ${subscriptionId} — orphaned resource may exist`,

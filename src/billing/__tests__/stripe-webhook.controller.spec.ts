@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { StripeWebhookController } from '../stripe-webhook.controller';
-import { StripeService } from '../stripe.service';
+import { PaymentService } from '../payment.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AppLogger } from '../../logger/app-logger';
 import { ServiceError } from '../../common/exceptions/service-error.exception';
@@ -9,10 +9,10 @@ import Stripe from 'stripe';
 
 describe('StripeWebhookController', () => {
   let controller: StripeWebhookController;
-  let stripeService: StripeService;
+  let paymentService: PaymentService;
   let prismaService: PrismaService;
 
-  const mockStripeService = {
+  const mockPaymentService = {
     verifyWebhookSignature: jest.fn(),
   };
 
@@ -36,14 +36,14 @@ describe('StripeWebhookController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [StripeWebhookController],
       providers: [
-        { provide: StripeService, useValue: mockStripeService },
+        { provide: PaymentService, useValue: mockPaymentService },
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AppLogger, useValue: mockLogger },
       ],
     }).compile();
 
     controller = module.get<StripeWebhookController>(StripeWebhookController);
-    stripeService = module.get<StripeService>(StripeService);
+    paymentService = module.get<PaymentService>(PaymentService);
     prismaService = module.get<PrismaService>(PrismaService);
 
     jest.clearAllMocks();
@@ -66,13 +66,13 @@ describe('StripeWebhookController', () => {
     };
 
     it('should verify signature and store event', async () => {
-      mockStripeService.verifyWebhookSignature.mockReturnValue(mockEvent);
+      mockPaymentService.verifyWebhookSignature.mockReturnValue(mockEvent);
       mockPrismaService.webhookEvent.findUnique.mockResolvedValue(null);
       mockPrismaService.webhookEvent.create.mockResolvedValue({ id: 'wh_123' });
 
       const result = await controller.handleWebhook('sig_test', mockRequest as any);
 
-      expect(stripeService.verifyWebhookSignature).toHaveBeenCalledWith(
+      expect(paymentService.verifyWebhookSignature).toHaveBeenCalledWith(
         mockRequest.rawBody.toString(),
         'sig_test'
       );
@@ -91,7 +91,7 @@ describe('StripeWebhookController', () => {
     });
 
     it('should return duplicate flag for existing event', async () => {
-      mockStripeService.verifyWebhookSignature.mockReturnValue(mockEvent);
+      mockPaymentService.verifyWebhookSignature.mockReturnValue(mockEvent);
       mockPrismaService.webhookEvent.findUnique.mockResolvedValue({ id: 'wh_existing' });
 
       const result = await controller.handleWebhook('sig_test', mockRequest as any);
@@ -101,7 +101,7 @@ describe('StripeWebhookController', () => {
     });
 
     it('should throw ServiceError on invalid signature', async () => {
-      mockStripeService.verifyWebhookSignature.mockImplementation(() => {
+      mockPaymentService.verifyWebhookSignature.mockImplementation(() => {
         throw new ServiceError('INVALID_WEBHOOK_SIGNATURE', 'Invalid webhook signature');
       });
 
@@ -111,7 +111,7 @@ describe('StripeWebhookController', () => {
     });
 
     it('should throw ServiceError when signature header is missing', async () => {
-      mockStripeService.verifyWebhookSignature.mockImplementation(() => {
+      mockPaymentService.verifyWebhookSignature.mockImplementation(() => {
         throw new ServiceError('INVALID_WEBHOOK_SIGNATURE', 'Invalid webhook signature');
       });
 
@@ -125,13 +125,13 @@ describe('StripeWebhookController', () => {
         rawBody: JSON.stringify(mockEvent.data.object),
       };
 
-      mockStripeService.verifyWebhookSignature.mockReturnValue(mockEvent);
+      mockPaymentService.verifyWebhookSignature.mockReturnValue(mockEvent);
       mockPrismaService.webhookEvent.findUnique.mockResolvedValue(null);
       mockPrismaService.webhookEvent.create.mockResolvedValue({ id: 'wh_123' });
 
       await controller.handleWebhook('sig_test', requestWithStringBody as any);
 
-      expect(stripeService.verifyWebhookSignature).toHaveBeenCalledWith(
+      expect(paymentService.verifyWebhookSignature).toHaveBeenCalledWith(
         JSON.stringify(mockEvent.data.object),
         'sig_test'
       );
@@ -140,7 +140,7 @@ describe('StripeWebhookController', () => {
     it('should handle empty rawBody', async () => {
       const requestWithEmptyBody = { rawBody: '' };
 
-      mockStripeService.verifyWebhookSignature.mockImplementation(() => {
+      mockPaymentService.verifyWebhookSignature.mockImplementation(() => {
         throw new ServiceError('INVALID_WEBHOOK_SIGNATURE', 'Invalid webhook signature');
       });
 

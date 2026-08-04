@@ -1,43 +1,39 @@
 import { Injectable } from '@nestjs/common';
-import Stripe from 'stripe';
-import { WebhookStrategyInterface } from '../webhook-strategy.interface';
+import { WebhookStrategy } from '../webhook-strategy.interface';
+import { AppLogger } from '../../../logger/app-logger';
+import { PaymentService } from '../../payment.service';
+import { WebhookEvent } from '../../payments/types/payment.types';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
+import { MAX_INVOICE_RETRY_ATTEMPTS } from '../../../constants/billing.constants';
 import { SubStatus } from '../../../../generated/prisma/client';
-
-import { AppLogger } from '../../../logger/app-logger';
-
 @Injectable()
-export class InvoicePaymentFailedStrategy implements WebhookStrategyInterface {
+export class InvoicePaymentFailedStrategy implements WebhookStrategy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
+    private readonly paymentService: PaymentService,
     private readonly logger: AppLogger,
   ) {
-    this.logger.setContext('InvoicePaymentFailedStrategy');
+    this.logger.setContext(InvoicePaymentFailedStrategy.name);
   }
 
   supports(eventType: string): boolean {
     return eventType === 'invoice.payment_failed';
   }
 
-  async handle(event: Stripe.Event): Promise<void> {
-    const invoice = event.data.object as Stripe.Invoice;
-    const invoiceId = invoice.id;
+  async handle(event: WebhookEvent): Promise<void> {
+    const failedInvoice = this.paymentService.mapRawInvoice(event.payload);
+    const invoiceId = failedInvoice.id;
 
     this.logger.log(`Processing invoice.payment_failed: ${invoiceId}`);
 
-    const invoiceWithSub = invoice as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null };
-    const subscriptionId = typeof invoiceWithSub.subscription === 'string'
-      ? invoiceWithSub.subscription
-      : invoiceWithSub.subscription?.id;
+    const stripeSubscriptionId = failedInvoice.subscriptionId;
 
-    if (!subscriptionId) {
+    if (!stripeSubscriptionId) {
       this.logger.warn(`Invoice ${invoiceId} has no subscription (one-time payment)`);
       return;
     }
-
-    const stripeSubscriptionId = subscriptionId;
 
     const subscription = await this.prisma.subscription.findUnique({
       where: { stripeSubscriptionId },
@@ -48,12 +44,10 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategyInterface {
       return;
     }
 
-    const attemptCount = invoice.attempt_count;
+    const attemptCount = failedInvoice.attemptCount || 1;
 
-    if (attemptCount < 3) {
-      this.logger.warn(
-        `Payment failed for subscription ${subscription.id} (attempt ${attemptCount}/3). Grace period active.`,
-      );
+    if (attemptCount < MAX_INVOICE_RETRY_ATTEMPTS) {
+      this.logger.log(`Invoice ${invoiceId} payment failed. Attempt ${attemptCount} of ${MAX_INVOICE_RETRY_ATTEMPTS}. Stripe will retry.`);
       return;
     }
 
@@ -71,6 +65,6 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategyInterface {
       });
     });
 
-    this.logger.log(`Payment failed 3 times: subscription ${subscription.id} marked as PAST_DUE, credits frozen`);
+    this.logger.log(`Payment failed ${MAX_INVOICE_RETRY_ATTEMPTS} times: subscription ${subscription.id} marked as PAST_DUE, credits frozen`);
   }
 }

@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ExchangeRateService } from '../exchange-rate.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AppLogger } from '../../logger/app-logger';
-
+import {ServiceUnavailableException } from '@nestjs/common';
 describe('ExchangeRateService', () => {
   let service: ExchangeRateService;
   let prisma: PrismaService;

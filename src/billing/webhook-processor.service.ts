@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhookStrategyFactory } from './strategies/webhook-strategy.factory';
-import { WebhookStatus, WebhookEvent } from '../../generated/prisma/client';
+import { WebhookStatus, WebhookEvent as PrismaWebhookEvent } from '../../generated/prisma/client';
+import { WebhookEvent as GenericWebhookEvent } from './payments/types/payment.types';
 
 import { AppLogger } from '../logger/app-logger';
 
@@ -19,24 +19,23 @@ export class WebhookProcessorService {
 
   @Cron(CronExpression.EVERY_30_SECONDS)
   async processPendingEvents() {
-    const events = await this.prisma.$queryRaw<WebhookEvent[]>`
+    const events = await this.prisma.$queryRaw<PrismaWebhookEvent[]>`
       SELECT 
         id, 
-        stripe_event_id AS "stripeEventId", 
+        "stripeEventId", 
         type, 
         payload, 
         status, 
-        retry_count AS "retryCount", 
-        max_retries AS "maxRetries", 
-        last_error AS "lastError", 
-        next_retry_at AS "nextRetryAt", 
-        processed_at AS "processedAt", 
-        created_at AS "createdAt", 
-        updated_at AS "updatedAt"
+        "retryCount", 
+        "maxRetries", 
+        "lastError", 
+        "nextRetryAt", 
+        "processedAt", 
+        "createdAt"
       FROM webhook_events
       WHERE status = ${WebhookStatus.PENDING}::"WebhookStatus"
-      AND next_retry_at <= NOW()
-      ORDER BY next_retry_at ASC
+      AND "nextRetryAt" <= NOW()
+      ORDER BY "nextRetryAt" ASC
       LIMIT 20
       FOR UPDATE SKIP LOCKED
     `;
@@ -52,7 +51,7 @@ export class WebhookProcessorService {
     }
   }
 
-  private async processEvent(event: WebhookEvent) {
+  private async processEvent(event: PrismaWebhookEvent) {
     const strategy = this.strategyFactory.getStrategy(event.type);
 
     if (!strategy) {
@@ -70,18 +69,13 @@ export class WebhookProcessorService {
         data: { status: WebhookStatus.PROCESSING },
       });
 
-      const stripeEvent = {
+      const genericEvent: GenericWebhookEvent = {
         id: event.stripeEventId,
-        object: 'event',
-        api_version: '2026-06-24.dahlia',
-        created: event.createdAt.getTime(),
         type: event.type,
-        data: {
-          object: event.payload as any,
-        },
-      } as Stripe.Event;
+        payload: event.payload,
+      };
 
-      await strategy.handle(stripeEvent);
+      await strategy.handle(genericEvent);
 
       await this.prisma.webhookEvent.update({
         where: { id: event.id },
@@ -97,7 +91,7 @@ export class WebhookProcessorService {
     }
   }
 
-  private async handleFailure(event: WebhookEvent, error: Error) {
+  private async handleFailure(event: PrismaWebhookEvent, error: Error) {
     const newRetryCount = event.retryCount + 1;
     const maxRetries = event.maxRetries;
 

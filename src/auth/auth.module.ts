@@ -1,14 +1,17 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './guards/auth.controller';
 import { PrismaModule } from '../prisma/prisma.module';
-import { StripeService } from '../billing/stripe.service';
+import { BillingModule } from '../billing/billing.module';
+import { CreditModule } from '../credit/credit.module';
 
 @Module({
   imports: [
     PrismaModule,
+    forwardRef(() => BillingModule),
+    forwardRef(() => CreditModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -21,7 +24,7 @@ import { StripeService } from '../billing/stripe.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, StripeService],
+  providers: [AuthService],
   exports: [AuthService, JwtModule],
 })
-export class AuthModule { }
+export class AuthModule {}

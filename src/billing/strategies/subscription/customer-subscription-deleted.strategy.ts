@@ -1,26 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
-import Stripe from 'stripe';
-import { WebhookStrategyInterface } from '../webhook-strategy.interface';
+import { WebhookStrategy } from '../webhook-strategy.interface';
+import { PaymentService } from '../../payment.service';
+import { WebhookEvent } from '../../payments/types/payment.types';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
 import { SubStatus, PlanType } from '../../../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '../../../constants/plan.constants';
 
 @Injectable()
-export class CustomerSubscriptionDeletedStrategy implements WebhookStrategyInterface {
+export class CustomerSubscriptionDeletedStrategy implements WebhookStrategy {
   private readonly logger = new Logger(CustomerSubscriptionDeletedStrategy.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
+    private readonly paymentService: PaymentService,
   ) {}
 
   supports(eventType: string): boolean {
     return eventType === 'customer.subscription.deleted';
   }
 
-  async handle(event: Stripe.Event): Promise<void> {
-    const subscription = event.data.object as Stripe.Subscription;
+  async handle(event: WebhookEvent): Promise<void> {
+    const subscription = this.paymentService.mapRawSubscription(event.payload);
     const stripeSubscriptionId = subscription.id;
 
     this.logger.log(`Processing customer.subscription.deleted: ${stripeSubscriptionId}`);

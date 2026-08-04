@@ -3,14 +3,14 @@ import { ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import { StripeService } from '../billing/stripe.service';
+import { PaymentService } from '../billing/payment.service';
 import * as bcrypt from 'bcrypt';
 
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: PrismaService;
   let jwtService: JwtService;
-  let stripeService: StripeService;
+  let paymentService: PaymentService;
 
   const mockPrisma = {
     user: {
@@ -44,7 +44,7 @@ describe('AuthService', () => {
     verifyAsync: jest.fn(),
   };
 
-  const mockStripeService = {
+  const mockPaymentService = {
     createCustomer: jest.fn(),
     createSubscription: jest.fn(),
   };
@@ -62,15 +62,15 @@ describe('AuthService', () => {
           useValue: mockJwtService,
         },
         {
-          provide: StripeService,
-          useValue: mockStripeService,
+          provide: PaymentService,
+          useValue: mockPaymentService,
         },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     prisma = module.get<PrismaService>(PrismaService);
-    stripeService = module.get<StripeService>(StripeService);
+    paymentService = module.get<PaymentService>(PaymentService);
     jest.clearAllMocks();
   });
 
@@ -95,31 +95,37 @@ describe('AuthService', () => {
         email: registerDto.email,
         password: 'hashed-password',
       });
-      mockStripeService.createCustomer.mockResolvedValue({
+      mockPaymentService.createCustomer.mockResolvedValue({
         id: 'cus_123',
       });
+
       mockPrisma.stripePrice.findFirst.mockResolvedValue({
-        stripePriceId: 'price_free_vnd',
+        stripePriceId: 'price_free',
       });
-      mockStripeService.createSubscription.mockResolvedValue({
+
+      mockPaymentService.createSubscription.mockResolvedValue({
         id: 'sub_123',
+        status: 'active',
+        currentPeriodStart: Math.floor(Date.now() / 1000),
+        currentPeriodEnd: Math.floor(Date.now() / 1000) + 2592000,
       });
+
+      mockPrisma.$transaction.mockImplementation(async (cb) => cb(mockPrisma));
+      mockPrisma.user.create.mockResolvedValue({ id: 'user_1', email: registerDto.email });
+      mockPrisma.profile.create.mockResolvedValue({ id: 'prof_1' });
+      mockPrisma.subscription.create.mockResolvedValue({ id: 'sub_record_1' });
+      mockPrisma.creditBalance.create.mockResolvedValue({ id: 'cred_1' });
+      mockPrisma.userRole.create.mockResolvedValue({ id: 'ur_1' });
 
       const result = await service.register(registerDto);
 
-      expect(result).toEqual({
-        id: 'user-id',
-        email: registerDto.email,
+      expect(mockPaymentService.createCustomer).toHaveBeenCalledWith(registerDto.email, {
+        name: `${registerDto.firstname} ${registerDto.lastname}`,
       });
-      expect(mockPrisma.user.create).toHaveBeenCalled();
-      expect(mockPrisma.profile.create).toHaveBeenCalled();
-      expect(mockPrisma.userRole.create).toHaveBeenCalled();
-      expect(mockStripeService.createCustomer).toHaveBeenCalledWith(registerDto.email, {
-        userId: 'user-id',
-      });
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'user-id' },
-        data: { stripeCustomerId: 'cus_123' },
+      expect(mockPaymentService.createSubscription).toHaveBeenCalledWith({
+        customerId: 'cus_123',
+        priceId: 'price_free',
+        metadata: { userId: 'user_1' },
       });
       expect(mockPrisma.subscription.create).toHaveBeenCalledWith({
         data: {

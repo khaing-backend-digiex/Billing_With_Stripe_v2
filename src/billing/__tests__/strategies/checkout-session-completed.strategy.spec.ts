@@ -2,14 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CheckoutSessionCompletedStrategy } from '../../strategies/checkout/checkout-session-completed.strategy';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
-import { StripeService } from '../../stripe.service';
-import Stripe from 'stripe';
+import { PaymentService } from '../../payment.service';
+import { WebhookEvent } from '../../payments/types/payment.types';
 
 describe('CheckoutSessionCompletedStrategy', () => {
   let strategy: CheckoutSessionCompletedStrategy;
   let prismaService: PrismaService;
   let creditService: CreditService;
-  let stripeService: StripeService;
+  let paymentService: PaymentService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -41,18 +41,14 @@ describe('CheckoutSessionCompletedStrategy', () => {
           },
         },
         {
-          provide: StripeService,
+          provide: PaymentService,
           useValue: {
             getSubscription: jest.fn().mockResolvedValue({
-              items: {
-                data: [
-                  {
-                    current_period_start: Math.floor(Date.now() / 1000),
-                    current_period_end: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
-                  },
-                ],
-              },
+              id: 'sub_123',
+              currentPeriodStart: Math.floor(Date.now() / 1000),
+              currentPeriodEnd: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
             }),
+            mapRawSession: jest.fn((payload) => payload),
           },
         },
       ],
@@ -61,7 +57,7 @@ describe('CheckoutSessionCompletedStrategy', () => {
     strategy = module.get<CheckoutSessionCompletedStrategy>(CheckoutSessionCompletedStrategy);
     prismaService = module.get<PrismaService>(PrismaService);
     creditService = module.get<CreditService>(CreditService);
-    stripeService = module.get<StripeService>(StripeService);
+    paymentService = module.get<PaymentService>(PaymentService);
   });
 
   it('should be defined', () => {
@@ -79,51 +75,44 @@ describe('CheckoutSessionCompletedStrategy', () => {
   });
 
   describe('handle', () => {
-    it('should handle subscription purchase', async () => {
-      const event = {
-        id: 'evt_test',
+    it('should process ADDON purchase successfully', async () => {
+      const mockEvent: WebhookEvent = {
+        id: 'evt_1',
         type: 'checkout.session.completed',
-        data: {
-          object: {
-            id: 'cs_test',
-            mode: 'subscription',
-            subscription: 'sub_test',
-            metadata: {
-              userId: 'user_test',
-              planType: 'PRO_MONTHLY',
-            },
+        payload: {
+          id: 'cs_123',
+          metadata: {
+            userId: 'user_1',
+            type: 'ADDON',
+            creditAmount: '100',
+            priceId: 'price_addon',
           },
         },
-      } as unknown as Stripe.Event;
+      };
 
-      await strategy.handle(event);
+      await strategy.handle(mockEvent);
 
-      expect(stripeService.getSubscription).toHaveBeenCalledWith('sub_test');
-      expect(prismaService.$transaction).toHaveBeenCalled();
+      expect(creditService.addAddonCredits).toHaveBeenCalledWith('user_1', 100);
     });
 
-    it('should handle addon purchase', async () => {
-      const event = {
-        id: 'evt_test',
+    it('should process SUBSCRIPTION purchase successfully', async () => {
+      const mockEvent: WebhookEvent = {
+        id: 'evt_2',
         type: 'checkout.session.completed',
-        data: {
-          object: {
-            id: 'cs_test',
-            mode: 'payment',
-            payment_intent: 'pi_test',
-            metadata: {
-              userId: 'user_test',
-              type: 'addon',
-              credits: '15',
-            },
+        payload: {
+          id: 'cs_123',
+          subscriptionId: 'sub_123',
+          metadata: {
+            userId: 'user_2',
+            type: 'SUBSCRIPTION',
+            planType: 'PRO_MONTHLY',
           },
         },
-      } as unknown as Stripe.Event;
+      };
 
-      await strategy.handle(event);
+      await strategy.handle(mockEvent);
 
-      expect(prismaService.$transaction).toHaveBeenCalled();
-      expect(creditService.addAddonCredits).toHaveBeenCalledWith('user_test', 15, expect.anything());
+      expect(paymentService.getSubscription).toHaveBeenCalledWith('sub_123');
     });
   });
 });

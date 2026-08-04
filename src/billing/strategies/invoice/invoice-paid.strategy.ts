@@ -1,41 +1,38 @@
 import { Injectable, Logger } from '@nestjs/common';
-import Stripe from 'stripe';
-import { WebhookStrategyInterface } from '../webhook-strategy.interface';
+import { WebhookStrategy } from '../webhook-strategy.interface';
+import { PaymentService } from '../../payment.service';
+import { WebhookEvent } from '../../payments/types/payment.types';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
 import { SubStatus } from '../../../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '../../../constants/plan.constants';
 
 @Injectable()
-export class InvoicePaidStrategy implements WebhookStrategyInterface {
+export class InvoicePaidStrategy implements WebhookStrategy {
   private readonly logger = new Logger(InvoicePaidStrategy.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
+    private readonly paymentService: PaymentService,
   ) { }
 
   supports(eventType: string): boolean {
     return eventType === 'invoice.paid';
   }
 
-  async handle(event: Stripe.Event): Promise<void> {
-    const invoice = event.data.object as Stripe.Invoice;
-    const invoiceId = invoice.id;
+  async handle(event: WebhookEvent): Promise<void> {
+    const paidInvoice = this.paymentService.mapRawInvoice(event.payload);
+    const invoiceId = paidInvoice.id;
 
     this.logger.log(`Processing invoice.paid: ${invoiceId}`);
 
-    const invoiceWithSub = invoice as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null };
-    const subscriptionId = typeof invoiceWithSub.subscription === 'string'
-      ? invoiceWithSub.subscription
-      : invoiceWithSub.subscription?.id;
+    const stripeSubscriptionId = paidInvoice.subscriptionId;
 
-    if (!subscriptionId) {
+    if (!stripeSubscriptionId) {
       this.logger.warn(`Invoice ${invoiceId} has no subscription (one-time payment)`);
       return;
     }
-
-    const stripeSubscriptionId = subscriptionId;
 
     const subscription = await this.prisma.subscription.findUnique({
       where: { stripeSubscriptionId },

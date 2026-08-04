@@ -1,29 +1,27 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, PlanType } from '../../generated/prisma/client';
-import { StripeService } from '../billing/stripe.service';
 import { ExchangeRateService } from './exchange-rate.service';
+import { PaymentService } from '../billing/payment.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ErrorCode } from '../common/enums/error-code.enum';
 import { ServiceError } from '../common/exceptions/service-error.exception';
-import { AppLogger } from '../logger/app-logger';
 
 @Injectable()
 export class CatalogService {
+  private readonly logger = new Logger(CatalogService.name);
+
   constructor(
     private readonly prisma: PrismaService,
-    private readonly stripeService: StripeService,
+    private readonly paymentService: PaymentService,
     private readonly exchangeRateService: ExchangeRateService,
-    private readonly logger: AppLogger,
-  ) {
-    this.logger.setContext('CatalogService');
-  }
+  ) {}
 
   async createProduct(dto: CreateProductDto) {
     this.logger.log(`Creating product: ${dto.name}`);
 
-    const stripeProduct = await this.stripeService.createProduct(dto.name, {
+    const stripeProduct = await this.paymentService.createProduct(dto.name, {
       planType: dto.planType,
     });
 
@@ -46,7 +44,7 @@ export class CatalogService {
         amount = Math.round(dto.basePrice * rate);
       }
 
-      const stripePrice = await this.stripeService.createPrice(
+      const stripePrice = await this.paymentService.createPrice(
         stripeProduct.id,
         amount,
         currency,
@@ -117,7 +115,7 @@ export class CatalogService {
     const product = await this.findProductById(id);
 
     if (dto.name || dto.isActive !== undefined) {
-      await this.stripeService.updateProduct(product.stripeProductId, {
+      await this.paymentService.updateProduct(product.stripeProductId, {
         name: dto.name,
         active: dto.isActive,
       });
@@ -157,7 +155,7 @@ export class CatalogService {
         amount = Math.round(vndPrice.amount * rate);
       }
 
-      const stripePrice = await this.stripeService.createPrice(
+      const stripePrice = await this.paymentService.createPrice(
         product.stripeProductId,
         amount,
         currency,

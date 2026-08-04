@@ -1,28 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
-import Stripe from 'stripe';
-import { WebhookStrategyInterface } from '../webhook-strategy.interface';
+import { PaymentService } from '../../payment.service';
+import { WebhookEvent, PaymentSession } from '../../payments/types/payment.types';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
-import { StripeService } from '../../stripe.service';
 import { PlanType, SubStatus } from '../../../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '../../../constants/plan.constants';
+import { WebhookStrategy } from '../webhook-strategy.interface';
 
 @Injectable()
-export class CheckoutSessionCompletedStrategy implements WebhookStrategyInterface {
+export class CheckoutSessionCompletedStrategy implements WebhookStrategy {
   private readonly logger = new Logger(CheckoutSessionCompletedStrategy.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
-    private readonly stripeService: StripeService,
+    private readonly paymentService: PaymentService,
   ) {}
 
   supports(eventType: string): boolean {
     return eventType === 'checkout.session.completed';
   }
 
-  async handle(event: Stripe.Event): Promise<void> {
-    const session = event.data.object as Stripe.Checkout.Session;
+  async handle(event: WebhookEvent): Promise<void> {
+    const session = event.payload as PaymentSession;
     const sessionId = session.id;
 
     this.logger.log(`Processing checkout.session.completed: ${sessionId}`);
@@ -34,10 +34,10 @@ export class CheckoutSessionCompletedStrategy implements WebhookStrategyInterfac
     }
   }
 
-  private async handleAddonPurchase(session: Stripe.Checkout.Session): Promise<void> {
+  private async handleAddonPurchase(session: PaymentSession): Promise<void> {
     const userId = session.metadata?.userId;
     const credits = parseInt(session.metadata?.credits || '0', 10);
-    const stripePaymentId = session.payment_intent as string;
+    const stripePaymentId = session.paymentIntentId as string;
 
     if (!userId) {
       throw new Error('Missing userId in session metadata');
@@ -60,10 +60,10 @@ export class CheckoutSessionCompletedStrategy implements WebhookStrategyInterfac
     this.logger.log(`Addon purchase completed: ${credits} credits added to user ${userId}`);
   }
 
-  private async handleSubscriptionPurchase(session: Stripe.Checkout.Session): Promise<void> {
+  private async handleSubscriptionPurchase(session: PaymentSession): Promise<void> {
     const userId = session.metadata?.userId;
     const planType = session.metadata?.planType as PlanType;
-    const stripeSubscriptionId = session.subscription as string;
+    const stripeSubscriptionId = session.subscriptionId as string;
 
     if (!userId || !planType) {
       throw new Error('Missing userId or planType in session metadata');
@@ -71,10 +71,15 @@ export class CheckoutSessionCompletedStrategy implements WebhookStrategyInterfac
 
     this.logger.log(`Processing subscription purchase: ${planType} for user ${userId}`);
 
-    const stripeSubscription = await this.stripeService.getSubscription(stripeSubscriptionId);
+    const stripeSubscription = await this.paymentService.getSubscription(stripeSubscriptionId);
 
-    const currentPeriodStart = new Date(stripeSubscription.items.data[0].current_period_start * 1000);
-    const currentPeriodEnd = new Date(stripeSubscription.items.data[0].current_period_end * 1000);
+    if (!stripeSubscription) {
+      this.logger.error(`Subscription not found for id: ${stripeSubscriptionId}`);
+      throw new Error(`Subscription not found for id: ${stripeSubscriptionId}`);
+    }
+
+    const currentPeriodStart = new Date(stripeSubscription.currentPeriodStart * 1000);
+    const currentPeriodEnd = new Date(stripeSubscription.currentPeriodEnd * 1000);
 
     await this.prisma.$transaction(async (tx) => {
       const currentActive = await tx.subscription.findFirst({

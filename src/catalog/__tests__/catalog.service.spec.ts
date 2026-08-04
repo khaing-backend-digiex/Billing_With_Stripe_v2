@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { CatalogService } from '../catalog.service';
 import { ExchangeRateService } from '../exchange-rate.service';
-import { StripeService } from '../../billing/stripe.service';
+import { PaymentService } from '../../billing/payment.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AppLogger } from '../../logger/app-logger';
 import { PlanType } from '../../../generated/prisma/client';
@@ -23,7 +24,7 @@ describe('CatalogService', () => {
     },
   };
 
-  const mockStripeService = {
+  const mockPaymentService = {
     createProduct: jest.fn(),
     createPrice: jest.fn(),
     updateProduct: jest.fn(),
@@ -39,7 +40,7 @@ describe('CatalogService', () => {
       providers: [
         CatalogService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: StripeService, useValue: mockStripeService },
+        { provide: PaymentService, useValue: mockPaymentService },
         { provide: ExchangeRateService, useValue: mockExchangeRateService },
         { provide: AppLogger, useValue: { error: jest.fn(), warn: jest.fn(), log: jest.fn() } },
       ],
@@ -51,34 +52,63 @@ describe('CatalogService', () => {
 
   describe('createProduct', () => {
     it('should create product with multi-currency prices', async () => {
-      mockStripeService.createProduct.mockResolvedValue({ id: 'prod_stripe_1' });
-      mockStripeService.createPrice.mockImplementation((_, amount, currency) =>
+      mockPaymentService.createProduct.mockResolvedValue({ id: 'prod_stripe_1' });
+      mockPaymentService.createPrice.mockImplementation((_, amount, currency) =>
         Promise.resolve({ id: `price_${currency}` }),
       );
       mockExchangeRateService.getExchangeRate.mockImplementation((currency) => {
         const rates: Record<string, number> = { USD: 0.00004, EUR: 0.000036, GBP: 0.000032 };
         return Promise.resolve(rates[currency]);
       });
-      mockPrisma.stripeProduct.create.mockResolvedValue({
-        id: 'db-prod-1',
+
+      mockPrisma.stripeProduct.create.mockResolvedValue({ id: 'prod_1' });
+
+      await service.createProduct({
+        name: 'Premium Plan',
+        planType: PlanType.PRO_MONTHLY,
+        basePrice: 500000,
+        interval: 'month'
+      });
+
+      expect(mockPaymentService.createProduct).toHaveBeenCalledWith('Premium Plan', {
+        planType: PlanType.PRO_MONTHLY,
+      });
+
+      expect(mockPaymentService.createPrice).toHaveBeenCalledTimes(4);
+      expect(mockPaymentService.createPrice).toHaveBeenCalledWith('prod_stripe_1', 500000, 'VND', 'month');
+      expect(mockPaymentService.createPrice).toHaveBeenCalledWith('prod_stripe_1', 2000, 'USD', 'month');
+      expect(mockPaymentService.createPrice).toHaveBeenCalledWith('prod_stripe_1', 1800, 'EUR', 'month');
+    });
+  });
+
+  describe('refreshPrices', () => {
+    it('should update prices based on new exchange rates', async () => {
+      const mockProduct = {
+        id: 'prod_1',
         stripeProductId: 'prod_stripe_1',
-        name: 'Pro Monthly',
-        planType: PlanType.PRO_MONTHLY,
+        prices: [
+          { currency: 'VND', amount: 500000, interval: 'month' },
+        ],
+      };
+      mockPrisma.stripeProduct.findUnique.mockResolvedValue(mockProduct);
+      
+      mockExchangeRateService.getExchangeRate.mockImplementation(async (currency) => {
+        if (currency === 'USD') return 0.005;
+        if (currency === 'EUR') return 0.004;
+        if (currency === 'GBP') return 0.003;
+        return 1;
       });
-      mockPrisma.stripePrice.create.mockImplementation((args) =>
-        Promise.resolve({ id: `db-price-${args.data.currency}`, ...args.data }),
-      );
 
-      const result = await service.createProduct({
-        name: 'Pro Monthly',
-        basePrice: 300000,
-        planType: PlanType.PRO_MONTHLY,
-        interval: 'month',
+      mockPaymentService.createPrice.mockResolvedValue({ id: 'price_usd_new' });
+      mockPrisma.stripePrice.create.mockResolvedValue({ id: 'price_new_db' });
+
+      await service.refreshPrices('prod_1');
+
+      expect(mockPaymentService.createPrice).toHaveBeenCalledWith('prod_stripe_1', 2500, 'USD', 'month');
+      expect(mockPrisma.stripePrice.updateMany).toHaveBeenCalledWith({
+        where: { productId: 'prod_1' },
+        data: { isActive: false },
       });
-
-      expect(result.prices).toHaveLength(4);
-      expect(mockStripeService.createPrice).toHaveBeenCalledTimes(4);
-      expect(mockExchangeRateService.getExchangeRate).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -109,12 +139,8 @@ describe('CatalogService', () => {
   });
 
   describe('updateProduct', () => {
-    it('should update product name and sync to Stripe', async () => {
-      mockPrisma.stripeProduct.findUnique.mockResolvedValue({
-        id: '1',
-        stripeProductId: 'prod_1',
-        name: 'Old',
-      });
+    it('should update product name', async () => {
+      mockPrisma.stripeProduct.findUnique.mockResolvedValue({ id: '1', stripeProductId: 'prod_1' });
       mockPrisma.stripeProduct.update.mockResolvedValue({
         id: '1',
         name: 'New',
@@ -123,7 +149,7 @@ describe('CatalogService', () => {
 
       const result = await service.updateProduct('1', { name: 'New' });
 
-      expect(mockStripeService.updateProduct).toHaveBeenCalledWith('prod_1', { name: 'New', active: undefined });
+      expect(mockPaymentService.updateProduct).toHaveBeenCalledWith('prod_1', { name: 'New', active: undefined });
       expect(result.name).toBe('New');
     });
   });

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { StripeService } from './stripe.service';
+import { PaymentService } from './payment.service';
 import { CreditService } from '../credit/credit.service';
 import { Prisma, PlanType, SubStatus } from '../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS, ADDON_CREDITS_PER_PURCHASE } from '../constants/plan.constants';
@@ -12,7 +12,7 @@ import { ServiceError } from '../common/exceptions/service-error.exception';
 export class BillingService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly stripeService: StripeService,
+    private readonly paymentService: PaymentService,
     private readonly creditService: CreditService,
     private readonly logger: AppLogger,
   ) {
@@ -33,7 +33,7 @@ export class BillingService {
       throw new ServiceError(ErrorCode.STRIPE_CUSTOMER_MISSING, 'User does not have a Stripe customer ID');
     }
 
-    const session = await this.stripeService.createCheckoutSession({
+    const session = await this.paymentService.createCheckoutSession({
       customerId: user.stripeCustomerId,
       priceId,
       mode: 'subscription',
@@ -73,7 +73,7 @@ export class BillingService {
       throw new ServiceError(ErrorCode.STRIPE_CUSTOMER_MISSING, 'User does not have a Stripe customer ID');
     }
 
-    const session = await this.stripeService.createCheckoutSession({
+    const session = await this.paymentService.createCheckoutSession({
       customerId: user.stripeCustomerId,
       priceId,
       mode: 'payment',
@@ -126,7 +126,7 @@ export class BillingService {
     const newPlan = newPrice.product.planType;
 
     if (this.isSameTierUpgrade(currentPlan, newPlan)) {
-      await this.stripeService.updateSubscription(activeSubscription.stripeSubscriptionId, {
+      await this.paymentService.updateSubscription(activeSubscription.stripeSubscriptionId, {
         newPriceId,
         prorationBehavior: 'create_prorations',
       });

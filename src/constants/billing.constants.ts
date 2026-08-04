@@ -1,0 +1,1 @@
+export const MAX_INVOICE_RETRY_ATTEMPTS = 3;

@@ -1,6 +1,6 @@
-import Stripe from 'stripe';
+import { WebhookEvent } from '../payments/types/payment.types';
 
-export interface WebhookStrategyInterface {
+export interface WebhookStrategy {
   supports(eventType: string): boolean;
-  handle(event: Stripe.Event): Promise<void>;
+  handle(event: WebhookEvent): Promise<void>;
 }

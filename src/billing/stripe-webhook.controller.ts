@@ -1,18 +1,25 @@
-import { Controller, Post, Headers, RawBodyRequest, Req } from '@nestjs/common';
+import { Controller, Post, Headers, RawBodyRequest, Req, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Request } from 'express';
-import { StripeService } from './stripe.service';
+import { PaymentService } from './payment.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhookStatus, Prisma } from '../../generated/prisma/client';
 import { SkipTransform } from '../common/decorators/skip-transform.decorator';
+import { WebhookProcessorService } from './webhook-processor.service';
+import { AppLogger } from '../logger/app-logger';
+import { MAX_INVOICE_RETRY_ATTEMPTS } from '../constants/billing.constants';
 
 @ApiTags('Webhooks')
 @Controller('webhooks/stripe')
 export class StripeWebhookController {
   constructor(
-    private readonly stripeService: StripeService,
+    private readonly paymentService: PaymentService,
     private readonly prisma: PrismaService,
-  ) {}
+    private readonly webhookProcessor: WebhookProcessorService,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('StripeWebhookController');
+  }
 
   @Post()
   @SkipTransform()
@@ -23,7 +30,7 @@ export class StripeWebhookController {
   ) {
     const payload = req.rawBody?.toString() || '';
 
-    const event = this.stripeService.verifyWebhookSignature(payload, signature);
+    const event = this.paymentService.verifyWebhookSignature(payload, signature);
 
     const existing = await this.prisma.webhookEvent.findUnique({
       where: { stripeEventId: event.id },
@@ -37,10 +44,10 @@ export class StripeWebhookController {
       data: {
         stripeEventId: event.id,
         type: event.type,
-        payload: event.data.object as Prisma.InputJsonValue,
+        payload: event.payload as Prisma.InputJsonValue,
         status: WebhookStatus.PENDING,
         retryCount: 0,
-        maxRetries: 3,
+        maxRetries: MAX_INVOICE_RETRY_ATTEMPTS,
         nextRetryAt: new Date(),
       },
     });
