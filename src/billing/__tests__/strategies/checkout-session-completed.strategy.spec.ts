@@ -83,8 +83,8 @@ describe('CheckoutSessionCompletedStrategy', () => {
           id: 'cs_123',
           metadata: {
             userId: 'user_1',
-            type: 'ADDON',
-            creditAmount: '100',
+            type: 'addon',
+            credits: '100',
             priceId: 'price_addon',
           },
         },
@@ -92,7 +92,7 @@ describe('CheckoutSessionCompletedStrategy', () => {
 
       await strategy.handle(mockEvent);
 
-      expect(creditService.addAddonCredits).toHaveBeenCalledWith('user_1', 100);
+      expect(creditService.addAddonCredits).toHaveBeenCalledWith('user_1', 100, expect.anything());
     });
 
     it('should process SUBSCRIPTION purchase successfully', async () => {

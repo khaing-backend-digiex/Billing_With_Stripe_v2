@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreditService } from './credit.service';
 import { PlanType, SubStatus } from '../../generated/prisma/client';
-import { PLAN_CREDIT_LIMITS } from '../constants/plan.constants';
+import { PLAN_CREDIT_LIMITS } from '../common/constants/plan.constants';
 import { AppLogger } from '../logger/app-logger';
 
 @Injectable()

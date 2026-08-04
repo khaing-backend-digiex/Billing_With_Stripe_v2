@@ -7,17 +7,13 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
 import { Permission } from '../enums/permission.enum';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-  constructor(
-    private readonly reflector: Reflector,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly reflector: Reflector) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): boolean {
     const requiredPermissions = this.reflector.getAllAndOverride<Permission[]>(
       PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],
@@ -34,34 +30,10 @@ export class PermissionsGuard implements CanActivate {
       throw new UnauthorizedException('User not authenticated');
     }
 
-    const userRoles = await this.prisma.userRole.findMany({
-      where: { userId: user.sub },
-      include: {
-        role: {
-          include: {
-            rolePermissions: {
-              include: {
-                permission: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!userRoles || userRoles.length === 0) {
-      throw new ForbiddenException('No roles assigned');
-    }
-
-    const userPermissions = new Set<string>();
-    for (const userRole of userRoles) {
-      for (const rolePermission of userRole.role.rolePermissions) {
-        userPermissions.add(rolePermission.permission.name);
-      }
-    }
+    const userPermissions = user.permissions || [];
 
     const hasPermission = requiredPermissions.every((permission) =>
-      userPermissions.has(permission),
+      userPermissions.includes(permission),
     );
 
     if (!hasPermission) {

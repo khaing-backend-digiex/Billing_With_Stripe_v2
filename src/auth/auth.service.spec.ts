@@ -1,9 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
+import { ServiceError } from '../common/exceptions/service-error.exception';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { PaymentService } from '../billing/payment.service';
+import { AppLogger } from '../logger/app-logger';
 import * as bcrypt from 'bcrypt';
 
 describe('AuthService', () => {
@@ -36,6 +38,12 @@ describe('AuthService', () => {
     creditBalance: {
       create: jest.fn(),
     },
+    refreshToken: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      deleteMany: jest.fn(),
+      delete: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -64,6 +72,10 @@ describe('AuthService', () => {
         {
           provide: PaymentService,
           useValue: mockPaymentService,
+        },
+        {
+          provide: AppLogger,
+          useValue: { error: jest.fn(), warn: jest.fn(), log: jest.fn(), setContext: jest.fn() },
         },
       ],
     }).compile();
@@ -119,17 +131,15 @@ describe('AuthService', () => {
 
       const result = await service.register(registerDto);
 
-      expect(mockPaymentService.createCustomer).toHaveBeenCalledWith(registerDto.email, {
-        name: `${registerDto.firstname} ${registerDto.lastname}`,
-      });
+      expect(mockPaymentService.createCustomer).toHaveBeenCalledWith(registerDto.email);
       expect(mockPaymentService.createSubscription).toHaveBeenCalledWith({
         customerId: 'cus_123',
         priceId: 'price_free',
-        metadata: { userId: 'user_1' },
+        metadata: { planType: 'FREE' },
       });
       expect(mockPrisma.subscription.create).toHaveBeenCalledWith({
         data: {
-          userId: 'user-id',
+          userId: 'user_1',
           stripeSubscriptionId: 'sub_123',
           plan: 'FREE',
           status: 'ACTIVE',
@@ -137,7 +147,7 @@ describe('AuthService', () => {
       });
       expect(mockPrisma.creditBalance.create).toHaveBeenCalledWith({
         data: {
-          userId: 'user-id',
+          userId: 'user_1',
           planCredits: 50,
           addonCreditsAvailable: 0,
           addonCreditsFrozen: 0,
@@ -146,18 +156,18 @@ describe('AuthService', () => {
       });
     });
 
-    it('should throw ConflictException if email already exists', async () => {
+    it('should throw ServiceError if email already exists', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         id: 'existing-id',
         email: registerDto.email,
       });
 
       await expect(service.register(registerDto)).rejects.toThrow(
-        ConflictException,
+        ServiceError,
       );
     });
 
-    it('should throw ConflictException if username already exists', async () => {
+    it('should throw ServiceError if username already exists', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.profile.findFirst.mockResolvedValue({
         id: 'existing-id',
@@ -165,7 +175,7 @@ describe('AuthService', () => {
       });
 
       await expect(service.register(registerDto)).rejects.toThrow(
-        ConflictException,
+        ServiceError,
       );
     });
   });
@@ -191,6 +201,7 @@ describe('AuthService', () => {
       };
 
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.userRole.findMany.mockResolvedValue([]);
       mockJwtService.sign.mockReturnValue('mock-jwt-token');
 
       const result = await service.login(loginDto);
@@ -200,11 +211,20 @@ describe('AuthService', () => {
         email: loginDto.email,
         roles: ['USER'],
         accessToken: 'mock-jwt-token',
+        refreshToken: expect.any(String),
       });
       expect(mockJwtService.sign).toHaveBeenCalledWith({
         sub: 'user-id',
         email: loginDto.email,
         roles: ['USER'],
+        permissions: [],
+      });
+      expect(mockPrisma.refreshToken.create).toHaveBeenCalledWith({
+        data: {
+          token: expect.any(String),
+          userId: 'user-id',
+          expiresAt: expect.any(Date),
+        },
       });
     });
 

@@ -5,12 +5,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AppLogger } from '../../logger/app-logger';
 import { ServiceError } from '../../common/exceptions/service-error.exception';
 import { WebhookStatus } from '../../../generated/prisma/client';
-import Stripe from 'stripe';
+import { WebhookProcessorService } from '../webhook-processor.service';
+import { WebhookEvent } from '../payments/types/payment.types';
 
 describe('StripeWebhookController', () => {
   let controller: StripeWebhookController;
   let paymentService: PaymentService;
   let prismaService: PrismaService;
+  let webhookProcessor: WebhookProcessorService;
 
   const mockPaymentService = {
     verifyWebhookSignature: jest.fn(),
@@ -21,6 +23,10 @@ describe('StripeWebhookController', () => {
       findUnique: jest.fn(),
       create: jest.fn(),
     },
+  };
+
+  const mockWebhookProcessor = {
+    processEvent: jest.fn(),
   };
 
   const mockLogger = {
@@ -38,6 +44,7 @@ describe('StripeWebhookController', () => {
       providers: [
         { provide: PaymentService, useValue: mockPaymentService },
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: WebhookProcessorService, useValue: mockWebhookProcessor },
         { provide: AppLogger, useValue: mockLogger },
       ],
     }).compile();
@@ -45,24 +52,23 @@ describe('StripeWebhookController', () => {
     controller = module.get<StripeWebhookController>(StripeWebhookController);
     paymentService = module.get<PaymentService>(PaymentService);
     prismaService = module.get<PrismaService>(PrismaService);
+    webhookProcessor = module.get<WebhookProcessorService>(WebhookProcessorService);
 
     jest.clearAllMocks();
   });
 
   describe('handleWebhook', () => {
-    const mockEvent = {
+    const mockEvent: WebhookEvent = {
       id: 'evt_test_123',
       type: 'checkout.session.completed',
-      data: {
-        object: {
-          id: 'cs_test_123',
-          metadata: { userId: 'user-1', planType: 'PRO_MONTHLY' },
-        },
+      payload: {
+        id: 'cs_test_123',
+        metadata: { userId: 'user-1', planType: 'PRO_MONTHLY' },
       },
-    } as unknown as Stripe.Event;
+    };
 
     const mockRequest = {
-      rawBody: Buffer.from(JSON.stringify(mockEvent.data.object)),
+      rawBody: Buffer.from(JSON.stringify(mockEvent.payload)),
     };
 
     it('should verify signature and store event', async () => {
@@ -80,7 +86,7 @@ describe('StripeWebhookController', () => {
         data: {
           stripeEventId: mockEvent.id,
           type: mockEvent.type,
-          payload: mockEvent.data.object,
+          payload: mockEvent.payload,
           status: WebhookStatus.PENDING,
           retryCount: 0,
           maxRetries: 3,
@@ -122,7 +128,7 @@ describe('StripeWebhookController', () => {
 
     it('should handle rawBody as string', async () => {
       const requestWithStringBody = {
-        rawBody: JSON.stringify(mockEvent.data.object),
+        rawBody: JSON.stringify(mockEvent.payload),
       };
 
       mockPaymentService.verifyWebhookSignature.mockReturnValue(mockEvent);
@@ -132,7 +138,7 @@ describe('StripeWebhookController', () => {
       await controller.handleWebhook('sig_test', requestWithStringBody as any);
 
       expect(paymentService.verifyWebhookSignature).toHaveBeenCalledWith(
-        JSON.stringify(mockEvent.data.object),
+        JSON.stringify(mockEvent.payload),
         'sig_test'
       );
     });

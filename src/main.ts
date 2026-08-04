@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AppLogger } from './logger/app-logger';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -11,6 +12,7 @@ async function bootstrap() {
   });
 
   app.useLogger(app.get(AppLogger));
+  app.use(cookieParser());
 
   app.setGlobalPrefix('api/v1', {
     exclude: ['/webhooks/stripe'],

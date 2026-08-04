@@ -4,7 +4,7 @@ import { WebhookEvent, PaymentSession } from '../../payments/types/payment.types
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
 import { PlanType, SubStatus } from '../../../../generated/prisma/client';
-import { PLAN_CREDIT_LIMITS } from '../../../constants/plan.constants';
+import { PLAN_CREDIT_LIMITS } from '../../../common/constants/plan.constants';
 import { WebhookStrategy } from '../webhook-strategy.interface';
 
 @Injectable()
@@ -15,7 +15,7 @@ export class CheckoutSessionCompletedStrategy implements WebhookStrategy {
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
     private readonly paymentService: PaymentService,
-  ) {}
+  ) { }
 
   supports(eventType: string): boolean {
     return eventType === 'checkout.session.completed';

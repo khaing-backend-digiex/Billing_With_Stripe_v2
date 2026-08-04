@@ -241,7 +241,7 @@ describe('CreditService', () => {
 
       expect(mockPrisma.creditBalance.update).toHaveBeenCalledWith({
         where: { userId: 'user-1' },
-        data: { addonCreditsAvailable: 0, addonCreditsFrozen: 20 },
+        data: { addonCreditsAvailable: 0, addonCreditsFrozen: { increment: 20 } },
       });
     });
   });

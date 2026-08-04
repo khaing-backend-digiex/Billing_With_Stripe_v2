@@ -189,3 +189,42 @@ The webhook endpoint SHALL return appropriate HTTP status codes for all scenario
 - **WHEN** an unexpected error occurs during event storage
 - **THEN** the endpoint SHALL return HTTP 500
 - **AND** Stripe SHALL retry the event
+
+## ADDED Requirements (from fixing-stripe)
+
+### Requirement: WebhookEvent Contract Fix
+The `WebhookEvent` type must carry a provider event ID and the raw domain object payload. The current implementation is missing the `id` field and wrapping the wrong layer of the Stripe envelope.
+
+#### Scenario 1: WebhookEvent carries event ID
+- **Given** a Stripe webhook event with `id: "evt_abc123"` arrives
+- **When** `constructWebhookEvent` processes the raw body and signature
+- **Then** the returned `WebhookEvent` has `id = "evt_abc123"`
+- **And** the controller can use `event.id` to perform deduplication lookups
+
+#### Scenario 2: WebhookEvent payload contains the domain object
+- **Given** a Stripe `invoice.paid` event with `data.object` containing a raw `Stripe.Invoice`
+- **When** `constructWebhookEvent` processes the event
+- **Then** `event.payload` is set to `event.data.object` (the raw invoice), not the entire `Stripe.Event` envelope
+- **And** strategies can pass `event.payload` directly to `mapRawInvoice()` without unwrapping
+
+#### Scenario 3: Deduplication succeeds with correct event ID
+- **Given** a webhook event with `id: "evt_abc123"` has already been stored in `webhook_events`
+- **When** the same event arrives again
+- **Then** the controller finds the existing record by `stripeEventId = "evt_abc123"`
+- **And** returns `{ received: true, duplicate: true }` without creating a new record
+
+### Requirement: WebhookProcessorService Migration
+The `WebhookProcessorService` must construct `WebhookEvent` objects (not `Stripe.Event`) when passing stored events to strategies.
+
+#### Scenario 5: Processor passes generic WebhookEvent to strategies
+- **Given** a pending `webhook_event` record with `type = "invoice.paid"` and `payload = { id: "in_123", ... }`
+- **When** `processEvent` picks up the record
+- **Then** it constructs `{ id: record.stripeEventId, type: record.type, payload: record.payload }`
+- **And** passes it to `strategy.handle(genericEvent)` with the `WebhookEvent` type
+- **And** does NOT import or reference `Stripe` SDK types
+
+#### Scenario 6: Strategy receives correct payload shape
+- **Given** the processor passes a `WebhookEvent` with `payload` set to the raw invoice JSON
+- **When** `InvoicePaidStrategy.handle(event)` calls `paymentService.mapRawInvoice(event.payload)`
+- **Then** `mapRawInvoice` receives a plain object matching `Stripe.Invoice` shape
+- **And** correctly maps it to a `PaymentInvoice`

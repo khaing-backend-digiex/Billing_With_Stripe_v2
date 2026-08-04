@@ -5,7 +5,7 @@ import { WebhookEvent } from '../../payments/types/payment.types';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
 import { SubStatus } from '../../../../generated/prisma/client';
-import { PLAN_CREDIT_LIMITS } from '../../../constants/plan.constants';
+import { PLAN_CREDIT_LIMITS } from '../../../common/constants/plan.constants';
 
 @Injectable()
 export class InvoicePaidStrategy implements WebhookStrategy {

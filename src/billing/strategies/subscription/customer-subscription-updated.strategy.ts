@@ -5,7 +5,7 @@ import { WebhookEvent } from '../../payments/types/payment.types';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
 import { PlanType, SubStatus, Prisma } from '../../../../generated/prisma/client';
-import { PLAN_CREDIT_LIMITS } from '../../../constants/plan.constants';
+import { PLAN_CREDIT_LIMITS } from '../../../common/constants/plan.constants';
 
 const STRIPE_STATUS_MAP: Record<string, SubStatus> = {
   active: SubStatus.ACTIVE,
@@ -23,7 +23,7 @@ export class CustomerSubscriptionUpdatedStrategy implements WebhookStrategy {
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
     private readonly paymentService: PaymentService,
-  ) {}
+  ) { }
 
   supports(eventType: string): boolean {
     return eventType === 'customer.subscription.updated';

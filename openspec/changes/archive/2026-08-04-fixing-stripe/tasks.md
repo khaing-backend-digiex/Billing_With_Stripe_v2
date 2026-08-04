@@ -25,11 +25,11 @@
     ```
   - Remove the `as any` cast.
 
-- [ ] **Task 4: Delete `stripe.service.ts`**
+- [x] **Task 4: Delete `stripe.service.ts`**
   - Delete `src/billing/stripe.service.ts`.
   - Verify no source files (excluding tests) import from it: `grep -r "stripe.service" src/`.
 
-- [ ] **Task 5: Rewrite webhook controller test**
+- [x] **Task 5: Rewrite webhook controller test**
   - Edit `src/billing/__tests__/stripe-webhook.controller.spec.ts`.
   - Replace `StripeService` imports with `PaymentService`.
   - Update the provider list to match actual controller dependencies: `PaymentService`, `PrismaService`, `WebhookProcessorService`, `AppLogger`.

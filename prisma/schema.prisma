@@ -24,6 +24,7 @@ model User {
   subscriptions  Subscription[]
   creditBalance  CreditBalance?
   addonPurchases AddonPurchase[]
+  refreshTokens  RefreshToken[]
 
   @@index([email])
   @@map("users")
@@ -43,6 +44,19 @@ model Profile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("profiles")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
 // ============================================================================

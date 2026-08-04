@@ -7,7 +7,7 @@ import { WebhookStatus, Prisma } from '../../generated/prisma/client';
 import { SkipTransform } from '../common/decorators/skip-transform.decorator';
 import { WebhookProcessorService } from './webhook-processor.service';
 import { AppLogger } from '../logger/app-logger';
-import { MAX_INVOICE_RETRY_ATTEMPTS } from '../constants/billing.constants';
+import { MAX_INVOICE_RETRY_ATTEMPTS } from '../common/constants/billing.constants';
 
 @ApiTags('Webhooks')
 @Controller('webhooks/stripe')

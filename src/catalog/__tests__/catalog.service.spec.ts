@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
 import { CatalogService } from '../catalog.service';
 import { ExchangeRateService } from '../exchange-rate.service';
 import { PaymentService } from '../../billing/payment.service';
@@ -76,8 +75,9 @@ describe('CatalogService', () => {
 
       expect(mockPaymentService.createPrice).toHaveBeenCalledTimes(4);
       expect(mockPaymentService.createPrice).toHaveBeenCalledWith('prod_stripe_1', 500000, 'VND', 'month');
-      expect(mockPaymentService.createPrice).toHaveBeenCalledWith('prod_stripe_1', 2000, 'USD', 'month');
-      expect(mockPaymentService.createPrice).toHaveBeenCalledWith('prod_stripe_1', 1800, 'EUR', 'month');
+      expect(mockPaymentService.createPrice).toHaveBeenCalledWith('prod_stripe_1', 20, 'USD', 'month');
+      expect(mockPaymentService.createPrice).toHaveBeenCalledWith('prod_stripe_1', 18, 'EUR', 'month');
+      expect(mockPaymentService.createPrice).toHaveBeenCalledWith('prod_stripe_1', 16, 'GBP', 'month');
     });
   });
 
@@ -125,16 +125,17 @@ describe('CatalogService', () => {
         total: 1,
         page: 1,
         limit: 20,
-        __paginated: true,
       });
     });
   });
 
   describe('findProductById', () => {
-    it('should throw NotFoundException if product not found', async () => {
+    it('should throw ServiceError if product not found', async () => {
       mockPrisma.stripeProduct.findUnique.mockResolvedValue(null);
 
-      await expect(service.findProductById('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.findProductById('nonexistent')).rejects.toThrow(
+        'Product nonexistent not found',
+      );
     });
   });
 

@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ExchangeRateService } from '../exchange-rate.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AppLogger } from '../../logger/app-logger';
-import {ServiceUnavailableException } from '@nestjs/common';
+import { ServiceError } from '../../common/exceptions/service-error.exception';
 describe('ExchangeRateService', () => {
   let service: ExchangeRateService;
   let prisma: PrismaService;
@@ -38,7 +38,7 @@ describe('ExchangeRateService', () => {
         },
         {
           provide: AppLogger,
-          useValue: { error: jest.fn(), warn: jest.fn(), log: jest.fn() },
+          useValue: { error: jest.fn(), warn: jest.fn(), log: jest.fn(), setContext: jest.fn() },
         },
       ],
     }).compile();
@@ -102,13 +102,13 @@ describe('ExchangeRateService', () => {
       expect(mockPrisma.exchangeRate.findUnique).toHaveBeenCalled();
     });
 
-    it('should throw ServiceUnavailableException when API fails and no cache exists', async () => {
+    it('should throw ServiceError when API fails and no cache exists', async () => {
       global.fetch = jest.fn().mockRejectedValue(new Error('API Error'));
 
       mockPrisma.exchangeRate.findUnique.mockResolvedValue(null);
 
       await expect(service.getExchangeRate('USD')).rejects.toThrow(
-        ServiceUnavailableException
+        ServiceError
       );
     });
 
@@ -161,13 +161,13 @@ describe('ExchangeRateService', () => {
       expect(global.fetch).toHaveBeenCalledTimes(3);
     });
 
-    it('should throw ServiceUnavailableException if any currency fails and no cache', async () => {
+    it('should throw ServiceError if any currency fails and no cache', async () => {
       global.fetch = jest.fn().mockRejectedValue(new Error('API Error'));
 
       mockPrisma.exchangeRate.findUnique.mockResolvedValue(null);
 
       await expect(service.getAllExchangeRates()).rejects.toThrow(
-        ServiceUnavailableException
+        ServiceError
       );
     });
   });

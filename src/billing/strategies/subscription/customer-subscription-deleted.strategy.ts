@@ -5,7 +5,7 @@ import { WebhookEvent } from '../../payments/types/payment.types';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreditService } from '../../../credit/credit.service';
 import { SubStatus, PlanType } from '../../../../generated/prisma/client';
-import { PLAN_CREDIT_LIMITS } from '../../../constants/plan.constants';
+import { PLAN_CREDIT_LIMITS } from '../../../common/constants/plan.constants';
 
 @Injectable()
 export class CustomerSubscriptionDeletedStrategy implements WebhookStrategy {
@@ -15,7 +15,7 @@ export class CustomerSubscriptionDeletedStrategy implements WebhookStrategy {
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
     private readonly paymentService: PaymentService,
-  ) {}
+  ) { }
 
   supports(eventType: string): boolean {
     return eventType === 'customer.subscription.deleted';

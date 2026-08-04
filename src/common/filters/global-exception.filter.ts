@@ -84,21 +84,21 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
 
   private mapServiceErrorToStatus(code: string): number {
     const notFoundCodes = [
-      ErrorCode.USER_NOT_FOUND, 
-      ErrorCode.PRICE_NOT_FOUND, 
-      ErrorCode.SUBSCRIPTION_NOT_FOUND, 
-      ErrorCode.CREDIT_BALANCE_NOT_FOUND, 
+      ErrorCode.USER_NOT_FOUND,
+      ErrorCode.PRICE_NOT_FOUND,
+      ErrorCode.SUBSCRIPTION_NOT_FOUND,
+      ErrorCode.CREDIT_BALANCE_NOT_FOUND,
       ErrorCode.PRODUCT_NOT_FOUND
     ];
-    
+
     const validationCodes = [
-      ErrorCode.INSUFFICIENT_CREDITS, 
-      ErrorCode.INVALID_WEBHOOK_SIGNATURE, 
-      ErrorCode.ADDON_REQUIRES_PRO, 
+      ErrorCode.INSUFFICIENT_CREDITS,
+      ErrorCode.INVALID_WEBHOOK_SIGNATURE,
+      ErrorCode.ADDON_REQUIRES_PRO,
       ErrorCode.CROSS_TIER_UPGRADE_DENIED,
       ErrorCode.STRIPE_CUSTOMER_MISSING
     ];
-    
+
     const authCodes: Record<string, number> = {
       [ErrorCode.EMAIL_ALREADY_IN_USE]: HttpStatus.CONFLICT,
       [ErrorCode.INVALID_CREDENTIALS]: HttpStatus.UNAUTHORIZED,

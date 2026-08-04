@@ -1,4 +1,4 @@
-import { PlanType } from '../../generated/prisma/client';
+import { PlanType } from '../../../generated/prisma/client';
 
 export const PLAN_CREDIT_LIMITS: Record<PlanType, number> = {
   [PlanType.FREE]: 50,

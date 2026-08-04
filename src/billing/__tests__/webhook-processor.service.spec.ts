@@ -3,6 +3,7 @@ import { WebhookProcessorService } from '../webhook-processor.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WebhookStrategyFactory } from '../strategies/webhook-strategy.factory';
 import { WebhookStatus } from '../../../generated/prisma/client';
+import { AppLogger } from '../../logger/app-logger';
 
 describe('WebhookProcessorService', () => {
   let service: WebhookProcessorService;
@@ -20,12 +21,22 @@ describe('WebhookProcessorService', () => {
     getStrategy: jest.fn(),
   };
 
+  const mockLogger = {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+    setContext: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WebhookProcessorService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: WebhookStrategyFactory, useValue: mockStrategyFactory },
+        { provide: AppLogger, useValue: mockLogger },
       ],
     }).compile();
 

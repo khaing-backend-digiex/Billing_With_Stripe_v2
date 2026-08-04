@@ -1,6 +1,6 @@
 import { PrismaClient } from '../generated/prisma/client.js';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PredefinedRole } from '../src/constants/predefined-role.js';
+import { PredefinedRole } from '../src/common/constants/predefined-role.js';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -48,7 +48,6 @@ async function main() {
 
   console.log('Permissions seeded successfully');
 
-  // Assign permissions to roles
   const adminRole = await prisma.role.findUnique({
     where: { name: PredefinedRole.ADMIN },
   });
@@ -110,4 +109,3 @@ main()
     await prisma.$disconnect();
   });
 
-  

@@ -6,11 +6,12 @@ import { PaymentService } from '../billing/payment.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
-import { PredefinedRole } from '../constants/predefined-role';
-import { PLAN_CREDIT_LIMITS } from '../constants/plan.constants';
-import { PlanType, SubStatus } from '../../generated/prisma/client';
+import * as crypto from 'crypto';
+import { PredefinedRole } from '../common/constants/predefined-role';
+import { PLAN_CREDIT_LIMITS } from '../common/constants/plan.constants';
 import { ErrorCode } from '../common/enums/error-code.enum';
 import { ServiceError } from '../common/exceptions/service-error.exception';
+import { PlanType, SubStatus } from '../../generated/prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -137,6 +138,30 @@ export class AuthService {
     }
   }
 
+  private async getUserPermissions(userId: string): Promise<string[]> {
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId },
+      include: {
+        role: {
+          include: {
+            rolePermissions: {
+              include: { permission: true },
+            },
+          },
+        },
+      },
+    });
+
+    const userPermissions = new Set<string>();
+    for (const userRole of userRoles) {
+      for (const rolePermission of userRole.role.rolePermissions) {
+        userPermissions.add(rolePermission.permission.name);
+      }
+    }
+
+    return Array.from(userPermissions);
+  }
+
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -148,8 +173,72 @@ export class AuthService {
     if (!isPasswordValid) throw new ServiceError(ErrorCode.INVALID_CREDENTIALS, 'Invalid credentials');
 
     const roles = user.userRoles.map((ur) => ur.role.name);
-    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email, roles });
+    const permissions = await this.getUserPermissions(user.id);
+    
+    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email, roles, permissions });
+    
+    const refreshToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-    return { id: user.id, email: user.email, roles, accessToken };
+    await this.storeRefreshToken(user.id, refreshToken, expiresAt);
+
+    return { id: user.id, email: user.email, roles, accessToken, refreshToken };
+  }
+
+  private async storeRefreshToken(userId: string, token: string, expiresAt: Date) {
+    await this.prisma.refreshToken.create({
+      data: {
+        token,
+        userId,
+        expiresAt,
+      },
+    });
+  }
+
+  async revokeRefreshToken(token: string) {
+    await this.prisma.refreshToken.deleteMany({
+      where: { token },
+    });
+  }
+
+  async refreshAccessToken(oldToken: string) {
+    const refreshTokenRecord = await this.prisma.refreshToken.findUnique({
+      where: { token: oldToken },
+      include: { user: { include: { userRoles: { include: { role: true } } } } },
+    });
+
+    if (!refreshTokenRecord) {
+      throw new ServiceError(ErrorCode.INVALID_CREDENTIALS, 'Invalid refresh token');
+    }
+
+    if (refreshTokenRecord.expiresAt < new Date()) {
+      await this.revokeRefreshToken(oldToken);
+      throw new ServiceError(ErrorCode.INVALID_CREDENTIALS, 'Refresh token expired');
+    }
+
+    const user = refreshTokenRecord.user;
+    const roles = user.userRoles.map((ur) => ur.role.name);
+    const permissions = await this.getUserPermissions(user.id);
+
+    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email, roles, permissions });
+
+    const newRefreshToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    // Replace the old token with the new one
+    await this.prisma.$transaction([
+      this.prisma.refreshToken.delete({ where: { id: refreshTokenRecord.id } }),
+      this.prisma.refreshToken.create({
+        data: {
+          token: newRefreshToken,
+          userId: user.id,
+          expiresAt,
+        },
+      }),
+    ]);
+
+    return { accessToken, refreshToken: newRefreshToken };
   }
 }
