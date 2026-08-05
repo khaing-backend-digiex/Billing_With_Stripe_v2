@@ -41,7 +41,7 @@ describe('CatalogService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PaymentService, useValue: mockPaymentService },
         { provide: ExchangeRateService, useValue: mockExchangeRateService },
-        { provide: AppLogger, useValue: { error: jest.fn(), warn: jest.fn(), log: jest.fn() } },
+        { provide: AppLogger, useValue: { error: jest.fn(), warn: jest.fn(), log: jest.fn(), setContext: jest.fn() } },
       ],
     }).compile();
 

@@ -12,6 +12,11 @@ import { PLAN_CREDIT_LIMITS } from '@/common/constants/plan.constants';
 import { ErrorCode } from '@/common/enums/error-code.enum';
 import { ServiceError } from '@/common/exceptions/service-error.exception';
 import { PlanType, SubStatus } from '../../generated/prisma/client';
+import { CURRENCY_VND } from '@/common/constants/currency.constants';
+import { REFRESH_TOKEN_BYTES, HASH_ALGORITHM } from '@/common/constants/auth.constants';
+
+const BCRYPT_SALT_ROUNDS = 10;
+const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 
 @Injectable()
 export class AuthService {
@@ -27,7 +32,7 @@ export class AuthService {
   async register(dto: RegisterDto) {
     await this.validateUniqueUser(dto.email, dto.username);
 
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
     const { customerId, subscriptionId } = await this.provisionStripeResources(dto.email);
 
     try {
@@ -57,7 +62,7 @@ export class AuthService {
     const freePrice = await this.prisma.stripePrice.findFirst({
       where: {
         product: { planType: PlanType.FREE },
-        currency: 'VND',
+        currency: CURRENCY_VND,
       },
     });
 
@@ -172,24 +177,29 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) throw new ServiceError(ErrorCode.INVALID_CREDENTIALS, 'Invalid credentials');
 
-    const roles = user.userRoles.map((ur) => ur.role.name);
+    const roles = user.userRoles.map((userRole) => userRole.role.name);
     const permissions = await this.getUserPermissions(user.id);
     
     const accessToken = this.jwtService.sign({ sub: user.id, email: user.email, roles, permissions });
     
-    const refreshToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
-
-    await this.storeRefreshToken(user.id, refreshToken, expiresAt);
+    const refreshToken = crypto.randomBytes(REFRESH_TOKEN_BYTES).toString('hex');
+    await this.storeRefreshToken(user.id, refreshToken, REFRESH_TOKEN_EXPIRY_DAYS);
 
     return { id: user.id, email: user.email, roles, accessToken, refreshToken };
   }
 
-  private async storeRefreshToken(userId: string, token: string, expiresAt: Date) {
+  private hashToken(token: string): string {
+    return crypto.createHash(HASH_ALGORITHM).update(token).digest('hex');
+  }
+
+  private async storeRefreshToken(userId: string, token: string, expiresInDays: number) {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+    const hashedToken = this.hashToken(token);
+
     await this.prisma.refreshToken.create({
       data: {
-        token,
+        token: hashedToken,
         userId,
         expiresAt,
       },
@@ -197,14 +207,16 @@ export class AuthService {
   }
 
   async revokeRefreshToken(token: string) {
+    const hashedToken = this.hashToken(token);
     await this.prisma.refreshToken.deleteMany({
-      where: { token },
+      where: { token: hashedToken },
     });
   }
 
   async refreshAccessToken(oldToken: string) {
+    const hashedToken = this.hashToken(oldToken);
     const refreshTokenRecord = await this.prisma.refreshToken.findUnique({
-      where: { token: oldToken },
+      where: { token: hashedToken },
       include: { user: { include: { userRoles: { include: { role: true } } } } },
     });
 
@@ -223,11 +235,10 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign({ sub: user.id, email: user.email, roles, permissions });
 
-    const newRefreshToken = crypto.randomBytes(32).toString('hex');
+    const newRefreshToken = crypto.randomBytes(REFRESH_TOKEN_BYTES).toString('hex');
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
 
-    // Replace the old token with the new one
     await this.prisma.$transaction([
       this.prisma.refreshToken.delete({ where: { id: refreshTokenRecord.id } }),
       this.prisma.refreshToken.create({

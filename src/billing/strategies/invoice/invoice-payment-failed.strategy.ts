@@ -7,6 +7,11 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreditService } from '@/credit/credit.service';
 import { MAX_INVOICE_RETRY_ATTEMPTS } from '@/common/constants/billing.constants';
 import { SubStatus } from '../../../../generated/prisma/client';
+import { STRIPE_EVENT_INVOICE_FAILED } from '@/common/constants/stripe-event.constants';
+
+const DEFAULT_ATTEMPT_COUNT = 1;
+const ZERO_CREDITS = 0;
+
 @Injectable()
 export class InvoicePaymentFailedStrategy implements WebhookStrategy {
   constructor(
@@ -19,7 +24,7 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategy {
   }
 
   supports(eventType: string): boolean {
-    return eventType === 'invoice.payment_failed';
+    return eventType === STRIPE_EVENT_INVOICE_FAILED;
   }
 
   async handle(event: WebhookEvent): Promise<void> {
@@ -44,7 +49,7 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategy {
       return;
     }
 
-    const attemptCount = failedInvoice.attemptCount || 1;
+    const attemptCount = failedInvoice.attemptCount || DEFAULT_ATTEMPT_COUNT;
 
     if (attemptCount < MAX_INVOICE_RETRY_ATTEMPTS) {
       this.logger.log(`Invoice ${invoiceId} payment failed. Attempt ${attemptCount} of ${MAX_INVOICE_RETRY_ATTEMPTS}. Stripe will retry.`);
@@ -61,7 +66,7 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategy {
 
       await tx.creditBalance.update({
         where: { userId: subscription.userId },
-        data: { planCredits: 0 },
+        data: { planCredits: ZERO_CREDITS },
       });
     });
 

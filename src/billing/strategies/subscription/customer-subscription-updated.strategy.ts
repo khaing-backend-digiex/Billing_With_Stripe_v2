@@ -6,27 +6,38 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreditService } from '@/credit/credit.service';
 import { PlanType, SubStatus, Prisma } from '../../../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '@/common/constants/plan.constants';
+import { AppLogger } from '@/logger/app-logger';
+import { STRIPE_EVENT_SUBSCRIPTION_UPDATED } from '@/common/constants/stripe-event.constants';
+import {
+  STRIPE_SUBSCRIPTION_STATUS_ACTIVE,
+  STRIPE_SUBSCRIPTION_STATUS_PAST_DUE,
+  STRIPE_SUBSCRIPTION_STATUS_CANCELED,
+  STRIPE_SUBSCRIPTION_STATUS_INCOMPLETE_EXPIRED,
+  STRIPE_SUBSCRIPTION_STATUS_UNPAID,
+  SECONDS_TO_MS,
+} from '@/common/constants/stripe.constants';
 
 const STRIPE_STATUS_MAP: Record<string, SubStatus> = {
-  active: SubStatus.ACTIVE,
-  past_due: SubStatus.PAST_DUE,
-  canceled: SubStatus.CANCELED,
-  incomplete_expired: SubStatus.EXPIRED,
-  unpaid: SubStatus.EXPIRED,
+  [STRIPE_SUBSCRIPTION_STATUS_ACTIVE]: SubStatus.ACTIVE,
+  [STRIPE_SUBSCRIPTION_STATUS_PAST_DUE]: SubStatus.PAST_DUE,
+  [STRIPE_SUBSCRIPTION_STATUS_CANCELED]: SubStatus.CANCELED,
+  [STRIPE_SUBSCRIPTION_STATUS_INCOMPLETE_EXPIRED]: SubStatus.EXPIRED,
+  [STRIPE_SUBSCRIPTION_STATUS_UNPAID]: SubStatus.EXPIRED,
 };
 
 @Injectable()
 export class CustomerSubscriptionUpdatedStrategy implements WebhookStrategy {
-  private readonly logger = new Logger(CustomerSubscriptionUpdatedStrategy.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
     private readonly paymentService: PaymentService,
-  ) { }
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('CustomerSubscriptionUpdatedStrategy');
+  }
 
   supports(eventType: string): boolean {
-    return eventType === 'customer.subscription.updated';
+    return eventType === STRIPE_EVENT_SUBSCRIPTION_UPDATED;
   }
 
   async handle(event: WebhookEvent): Promise<void> {
@@ -50,8 +61,8 @@ export class CustomerSubscriptionUpdatedStrategy implements WebhookStrategy {
     const priceMetadata = subscription.items[0]?.priceMetadata;
     const newPlanType = priceMetadata?.planType as PlanType | undefined;
 
-    const currentPeriodStart = new Date(subscription.currentPeriodStart * 1000);
-    const currentPeriodEnd = new Date(subscription.currentPeriodEnd * 1000);
+    const currentPeriodStart = new Date(subscription.currentPeriodStart * SECONDS_TO_MS);
+    const currentPeriodEnd = new Date(subscription.currentPeriodEnd * SECONDS_TO_MS);
 
     await this.prisma.$transaction(async (tx) => {
       const updateData: Prisma.SubscriptionUpdateInput = {

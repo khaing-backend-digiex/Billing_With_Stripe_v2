@@ -8,6 +8,8 @@ import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { SKIP_TRANSFORM_KEY } from '@/common/decorators/skip-transform.decorator';
+import { Request } from 'express';
+import { HEADER_REQUEST_ID } from '@/common/constants/http.constants';
 
 @Injectable()
 export class TransformResponseInterceptor implements NestInterceptor {
@@ -59,9 +61,9 @@ export class TransformResponseInterceptor implements NestInterceptor {
     );
   }
 
-  private buildBaseMeta(request: Record<string, unknown> | any) {
+  private buildBaseMeta(request: Request & { reqId?: string }) {
     return {
-      requestId: request.headers['x-request-id'] || request.reqId,
+      requestId: request.headers[HEADER_REQUEST_ID] || request.reqId,
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,

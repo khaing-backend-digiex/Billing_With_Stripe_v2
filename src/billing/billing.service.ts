@@ -5,8 +5,21 @@ import { CreditService } from '@/credit/credit.service';
 import { Prisma, PlanType, SubStatus } from '../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS, ADDON_CREDITS_PER_PURCHASE } from '@/common/constants/plan.constants';
 import { AppLogger } from '@/logger/app-logger';
+import { ConfigService } from '@nestjs/config';
 import { ErrorCode } from '@/common/enums/error-code.enum';
 import { ServiceError } from '@/common/exceptions/service-error.exception';
+import {
+  STRIPE_CHECKOUT_MODE_SUBSCRIPTION,
+  STRIPE_CHECKOUT_MODE_PAYMENT,
+  STRIPE_PRORATION_CREATE,
+} from '@/common/constants/stripe.constants';
+import {
+  BILLING_SUCCESS_PATH,
+  BILLING_CANCEL_PATH,
+  METADATA_TYPE_ADDON,
+  DEFAULT_PAGINATION_LIMIT,
+} from '@/common/constants/billing.constants';
+import { ENV_FRONTEND_URL } from '@/common/constants/env.constants';
 
 @Injectable()
 export class BillingService {
@@ -15,8 +28,17 @@ export class BillingService {
     private readonly paymentService: PaymentService,
     private readonly creditService: CreditService,
     private readonly logger: AppLogger,
+    private readonly configService: ConfigService,
   ) {
     this.logger.setContext('BillingService');
+  }
+
+  private getCheckoutUrls() {
+    const baseUrl = this.configService.get<string>(ENV_FRONTEND_URL);
+    return {
+      successUrl: `${baseUrl}${BILLING_SUCCESS_PATH}`,
+      cancelUrl: `${baseUrl}${BILLING_CANCEL_PATH}`,
+    };
   }
 
   async createSubscriptionCheckout(userId: string, priceId: string, currency: string) {
@@ -36,9 +58,8 @@ export class BillingService {
     const session = await this.paymentService.createCheckoutSession({
       customerId: user.stripeCustomerId,
       priceId,
-      mode: 'subscription',
-      successUrl: `${process.env.FRONTEND_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${process.env.FRONTEND_URL}/billing/cancel`,
+      mode: STRIPE_CHECKOUT_MODE_SUBSCRIPTION,
+      ...this.getCheckoutUrls(),
       metadata: {
         userId,
         planType: price.product.planType,
@@ -76,12 +97,11 @@ export class BillingService {
     const session = await this.paymentService.createCheckoutSession({
       customerId: user.stripeCustomerId,
       priceId,
-      mode: 'payment',
-      successUrl: `${process.env.FRONTEND_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${process.env.FRONTEND_URL}/billing/cancel`,
+      mode: STRIPE_CHECKOUT_MODE_PAYMENT,
+      ...this.getCheckoutUrls(),
       metadata: {
         userId,
-        type: 'addon',
+        type: METADATA_TYPE_ADDON,
         credits: String(ADDON_CREDITS_PER_PURCHASE),
       },
     });
@@ -90,7 +110,7 @@ export class BillingService {
   }
 
   async getUserSubscriptions(userId: string, query: { page?: number; limit?: number; status?: SubStatus }) {
-    const { page = 1, limit = 10, status } = query;
+    const { page = 1, limit = DEFAULT_PAGINATION_LIMIT, status } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.SubscriptionWhereInput = { userId };
@@ -128,7 +148,7 @@ export class BillingService {
     if (this.isSameTierUpgrade(currentPlan, newPlan)) {
       await this.paymentService.updateSubscription(activeSubscription.stripeSubscriptionId, {
         newPriceId,
-        prorationBehavior: 'create_prorations',
+        prorationBehavior: STRIPE_PRORATION_CREATE,
       });
 
       await this.prisma.subscription.update({

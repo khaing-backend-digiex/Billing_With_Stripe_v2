@@ -6,6 +6,8 @@ import { PlanType, SubStatus } from '../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '@/common/constants/plan.constants';
 import { AppLogger } from '@/logger/app-logger';
 
+const JANUARY_MONTH_INDEX = 0;
+
 @Injectable()
 export class CreditResetCronService {
   constructor(
@@ -42,10 +44,14 @@ export class CreditResetCronService {
 
     for (const subscription of subscriptions) {
       try {
-        if (subscription.plan === PlanType.FREE || subscription.plan === PlanType.PRO_ANNUAL || subscription.plan === PlanType.PRO_MONTHLY) {
+        if (subscription.plan === PlanType.FREE || subscription.plan === PlanType.PRO_MONTHLY) {
           const credits = PLAN_CREDIT_LIMITS[subscription.plan];
           await this.creditService.resetPlanCredits(subscription.userId, credits);
-          this.logger.log(`Reset credits for user ${subscription.userId} to ${credits}`);
+          this.logger.log(`Reset monthly credits for user ${subscription.userId} to ${credits}`);
+        } else if (subscription.plan === PlanType.PRO_ANNUAL && today.getMonth() === JANUARY_MONTH_INDEX) {
+          const credits = PLAN_CREDIT_LIMITS[subscription.plan];
+          await this.creditService.resetPlanCredits(subscription.userId, credits);
+          this.logger.log(`Reset annual credits for user ${subscription.userId} to ${credits}`);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

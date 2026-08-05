@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsDateString, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsDateString, IsNotEmpty, Matches } from 'class-validator';
 import { IsPastDateString } from '@/auth/decorators/is-past-date.decorator';
 
 export class RegisterDto {
@@ -6,7 +6,8 @@ export class RegisterDto {
   email!: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).{8,}$/, { message: 'Password must contain at least one letter and one number' })
   password!: string;
 
   @IsString()

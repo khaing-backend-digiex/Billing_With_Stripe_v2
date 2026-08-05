@@ -9,10 +9,12 @@ import {
   WebhookEvent,
 } from '@/billing/payments/types/payment.types';
 
+export const PAYMENT_ADAPTER_TOKEN = 'PAYMENT_ADAPTER';
+
 @Injectable()
 export class PaymentService {
   constructor(
-    @Inject('PAYMENT_ADAPTER')
+    @Inject(PAYMENT_ADAPTER_TOKEN)
     private readonly paymentAdapter: IPaymentAdapter,
   ) {}
 

@@ -1,4 +1,5 @@
 import { IsString, IsIn, IsNotEmpty } from 'class-validator';
+import { SUPPORTED_CURRENCIES } from '@/common/constants/currency.constants';
 
 export class CreateSubscriptionCheckoutDto {
   @IsString()
@@ -6,6 +7,6 @@ export class CreateSubscriptionCheckoutDto {
 
   @IsString()
   @IsNotEmpty()
-  @IsIn(['VND', 'USD', 'EUR', 'GBP'])
+  @IsIn(SUPPORTED_CURRENCIES)
   currency!: string;
 }

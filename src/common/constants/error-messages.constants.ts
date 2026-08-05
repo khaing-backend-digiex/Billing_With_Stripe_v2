@@ -1,0 +1,12 @@
+export const ERROR_JWT_SECRET_NOT_DEFINED = 'JWT_SECRET is not defined in the environment variables';
+export const ERROR_STRIPE_SECRET_KEY_NOT_DEFINED = 'STRIPE_SECRET_KEY is not defined';
+export const ERROR_STRIPE_WEBHOOK_SECRET_NOT_DEFINED = 'STRIPE_WEBHOOK_SECRET is not defined';
+export const ERROR_EXCHANGE_RATE_API_KEY_NOT_DEFINED = 'EXCHANGE_RATE_API_KEY is not defined';
+export const ERROR_NO_AUTH_TOKEN = 'No authentication token provided';
+export const ERROR_INVALID_TOKEN = 'Invalid or expired token';
+export const ERROR_USER_NOT_AUTHENTICATED = 'User not authenticated';
+export const ERROR_INSUFFICIENT_PERMISSIONS = 'Insufficient permissions';
+export const ERROR_REFRESH_TOKEN_MISSING = 'Refresh token missing';
+export const ERROR_DATABASE_OPERATION_FAILED = 'Database operation failed';
+export const ERROR_DATABASE_VALIDATION_FAILED = 'Database validation failed';
+export const ERROR_INTERNAL_SERVER_ERROR = 'Internal server error';

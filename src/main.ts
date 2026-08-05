@@ -1,9 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from '@/app.module';
 import { AppLogger } from '@/logger/app-logger';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import { API_PREFIX, WEBHOOK_PATH, SWAGGER_TITLE, SWAGGER_DESCRIPTION, SWAGGER_VERSION, SWAGGER_PATH, DEFAULT_PORT } from '@/common/constants/http.constants';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -12,10 +15,11 @@ async function bootstrap() {
   });
 
   app.useLogger(app.get(AppLogger));
+  app.use(helmet());
   app.use(cookieParser());
 
-  app.setGlobalPrefix('api/v1', {
-    exclude: ['/webhooks/stripe'],
+  app.setGlobalPrefix(API_PREFIX, {
+    exclude: ['webhooks/stripe'],
   });
 
   app.useGlobalPipes(
@@ -27,14 +31,16 @@ async function bootstrap() {
   );
 
   const config = new DocumentBuilder()
-    .setTitle('Billing API')
-    .setDescription('API for billing and subscription management')
-    .setVersion('1.0')
+    .setTitle(SWAGGER_TITLE)
+    .setDescription(SWAGGER_DESCRIPTION)
+    .setVersion(SWAGGER_VERSION)
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup(SWAGGER_PATH, app, document);
 
-  await app.listen(3000);
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('PORT', DEFAULT_PORT);
+  await app.listen(port);
 }
 bootstrap();

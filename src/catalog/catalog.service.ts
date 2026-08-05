@@ -7,16 +7,20 @@ import { CreateProductDto } from '@/catalog/dto/create-product.dto';
 import { UpdateProductDto } from '@/catalog/dto/update-product.dto';
 import { ErrorCode } from '@/common/enums/error-code.enum';
 import { ServiceError } from '@/common/exceptions/service-error.exception';
+import { AppLogger } from '@/logger/app-logger';
+import { CATALOG_DEFAULT_LIMIT } from '@/common/constants/pagination.constants';
+import { CURRENCY_VND, DEFAULT_CURRENCY } from '@/common/constants/currency.constants';
 
 @Injectable()
 export class CatalogService {
-  private readonly logger = new Logger(CatalogService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentService: PaymentService,
     private readonly exchangeRateService: ExchangeRateService,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('CatalogService');
+  }
 
   async createProduct(dto: CreateProductDto) {
     this.logger.log(`Creating product: ${dto.name}`);
@@ -33,13 +37,13 @@ export class CatalogService {
       },
     });
 
-    const currencies = ['VND', 'USD', 'EUR', 'GBP'];
+    const currencies = [this.exchangeRateService.baseCurrency, ...this.exchangeRateService.supportedCurrencies];
     const prices = [];
 
     for (const currency of currencies) {
       let amount = dto.basePrice;
       
-      if (currency !== 'VND') {
+      if (currency !== CURRENCY_VND) {
         const rate = await this.exchangeRateService.getExchangeRate(currency);
         amount = Math.round(dto.basePrice * rate);
       }
@@ -71,7 +75,7 @@ export class CatalogService {
   }
 
   async findAllProducts(query: { page?: number; limit?: number; planType?: PlanType; isActive?: boolean }) {
-    const { page = 1, limit = 20, planType, isActive } = query;
+    const { page = 1, limit = CATALOG_DEFAULT_LIMIT, planType, isActive } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.StripeProductWhereInput = {};
@@ -141,16 +145,16 @@ export class CatalogService {
       data: { isActive: false },
     });
 
-    const currencies = ['VND', 'USD', 'EUR', 'GBP'];
+    const currencies = [this.exchangeRateService.baseCurrency, ...this.exchangeRateService.supportedCurrencies];
     const newPrices = [];
 
     for (const currency of currencies) {
-      const vndPrice = product.prices.find((p) => p.currency === 'VND');
+      const vndPrice = product.prices.find((p) => p.currency === CURRENCY_VND);
       if (!vndPrice) continue;
 
       let amount = vndPrice.amount;
       
-      if (currency !== 'VND') {
+      if (currency !== CURRENCY_VND) {
         const rate = await this.exchangeRateService.getExchangeRate(currency);
         amount = Math.round(vndPrice.amount * rate);
       }

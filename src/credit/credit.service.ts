@@ -5,6 +5,8 @@ import { AppLogger } from '@/logger/app-logger';
 import { ErrorCode } from '@/common/enums/error-code.enum';
 import { ServiceError } from '@/common/exceptions/service-error.exception';
 
+const ZERO_CREDITS = 0;
+
 @Injectable()
 export class CreditService {
   constructor(
@@ -25,7 +27,7 @@ export class CreditService {
       }
 
       let remaining = amount;
-      const updates: any = {};
+      const updates: Prisma.CreditBalanceUpdateInput = {};
 
       if (balance.planCredits > 0) {
         const planDeduction = Math.min(balance.planCredits, remaining);
@@ -102,7 +104,7 @@ export class CreditService {
       where: { userId },
       data: {
         addonCreditsFrozen: { increment: balance.addonCreditsAvailable },
-        addonCreditsAvailable: 0,
+        addonCreditsAvailable: ZERO_CREDITS,
       },
     });
   }
@@ -122,7 +124,7 @@ export class CreditService {
       where: { userId },
       data: {
         addonCreditsAvailable: { increment: balance.addonCreditsFrozen },
-        addonCreditsFrozen: 0,
+        addonCreditsFrozen: ZERO_CREDITS,
       },
     });
   }

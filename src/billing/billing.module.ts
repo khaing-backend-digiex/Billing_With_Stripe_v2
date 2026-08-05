@@ -2,7 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { BillingController } from '@/billing/billing.controller';
 import { BillingService } from '@/billing/billing.service';
 import { StripeWebhookController } from '@/billing/stripe-webhook.controller';
-import { PaymentService } from '@/billing/payment.service';
+import { PaymentService, PAYMENT_ADAPTER_TOKEN } from '@/billing/payment.service';
 import { StripeAdapter } from '@/billing/payments/adapters/stripe.adapter';
 import { CreditModule } from '@/credit/credit.module';
 import { AuthModule } from '@/auth/auth.module';
@@ -15,6 +15,7 @@ import { CustomerSubscriptionUpdatedStrategy } from '@/billing/strategies/subscr
 import { CustomerSubscriptionDeletedStrategy } from '@/billing/strategies/subscription/customer-subscription-deleted.strategy';
 import { ScheduleModule } from '@nestjs/schedule';
 import { WebhookStrategy } from '@/billing/strategies/webhook-strategy.interface';
+import { WEBHOOK_STRATEGIES_TOKEN } from '@/billing/strategies/webhook-strategy.factory';
 
 const webhookStrategies = [
   CheckoutSessionCompletedStrategy,
@@ -35,12 +36,12 @@ const webhookStrategies = [
     BillingService,
     PaymentService,
     {
-      provide: 'PAYMENT_ADAPTER',
+      provide: PAYMENT_ADAPTER_TOKEN,
       useClass: StripeAdapter,
     },
     ...webhookStrategies,
     {
-      provide: 'WEBHOOK_STRATEGIES',
+      provide: WEBHOOK_STRATEGIES_TOKEN,
       useFactory: (...strategies: WebhookStrategy[]) => strategies,
       inject: webhookStrategies,
     },

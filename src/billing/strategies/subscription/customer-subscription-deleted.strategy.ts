@@ -6,19 +6,22 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreditService } from '@/credit/credit.service';
 import { SubStatus, PlanType } from '../../../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '@/common/constants/plan.constants';
+import { AppLogger } from '@/logger/app-logger';
+import { STRIPE_EVENT_SUBSCRIPTION_DELETED } from '@/common/constants/stripe-event.constants';
 
 @Injectable()
 export class CustomerSubscriptionDeletedStrategy implements WebhookStrategy {
-  private readonly logger = new Logger(CustomerSubscriptionDeletedStrategy.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
     private readonly paymentService: PaymentService,
-  ) { }
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('CustomerSubscriptionDeletedStrategy');
+  }
 
   supports(eventType: string): boolean {
-    return eventType === 'customer.subscription.deleted';
+    return eventType === STRIPE_EVENT_SUBSCRIPTION_DELETED;
   }
 
   async handle(event: WebhookEvent): Promise<void> {

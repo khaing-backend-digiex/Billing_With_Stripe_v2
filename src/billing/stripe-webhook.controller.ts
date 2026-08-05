@@ -8,6 +8,7 @@ import { SkipTransform } from '@/common/decorators/skip-transform.decorator';
 import { WebhookProcessorService } from '@/billing/webhook-processor.service';
 import { AppLogger } from '@/logger/app-logger';
 import { MAX_INVOICE_RETRY_ATTEMPTS } from '@/common/constants/billing.constants';
+import { HEADER_STRIPE_SIGNATURE } from '@/common/constants/http.constants';
 
 @ApiTags('Webhooks')
 @Controller('webhooks/stripe')
@@ -25,7 +26,7 @@ export class StripeWebhookController {
   @SkipTransform()
   @ApiOperation({ summary: 'Handle Stripe webhook events' })
   async handleWebhook(
-    @Headers('stripe-signature') signature: string,
+    @Headers(HEADER_STRIPE_SIGNATURE) signature: string,
     @Req() req: RawBodyRequest<Request>,
   ) {
     const payload = req.rawBody?.toString() || '';

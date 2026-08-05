@@ -1,0 +1,11 @@
+export const HEADER_REQUEST_ID = 'x-request-id';
+export const HEADER_STRIPE_SIGNATURE = 'stripe-signature';
+export const API_PREFIX = 'api/v1';
+export const WEBHOOK_PATH = '/webhooks/stripe';
+export const SWAGGER_PATH = 'api/docs';
+export const DEFAULT_PORT = 3000;
+export const SWAGGER_TITLE = 'Billing API';
+export const SWAGGER_DESCRIPTION = 'API for billing and subscription management';
+export const SWAGGER_VERSION = '1.0';
+export const THROTTLER_TTL_MS = 60000;
+export const THROTTLER_LIMIT = 100;

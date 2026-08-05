@@ -4,6 +4,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreditService } from '@/credit/credit.service';
 import { PaymentService } from '@/billing/payment.service';
 import { WebhookEvent } from '@/billing/payments/types/payment.types';
+import { AppLogger } from '@/logger/app-logger';
 
 describe('CheckoutSessionCompletedStrategy', () => {
   let strategy: CheckoutSessionCompletedStrategy;
@@ -49,6 +50,15 @@ describe('CheckoutSessionCompletedStrategy', () => {
               currentPeriodEnd: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
             }),
             mapRawSession: jest.fn((payload) => payload),
+          },
+        },
+        {
+          provide: AppLogger,
+          useValue: {
+            setContext: jest.fn(),
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
           },
         },
       ],

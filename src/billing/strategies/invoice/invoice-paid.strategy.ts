@@ -6,19 +6,22 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreditService } from '@/credit/credit.service';
 import { SubStatus } from '../../../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '@/common/constants/plan.constants';
+import { AppLogger } from '@/logger/app-logger';
+import { STRIPE_EVENT_INVOICE_PAID } from '@/common/constants/stripe-event.constants';
 
 @Injectable()
 export class InvoicePaidStrategy implements WebhookStrategy {
-  private readonly logger = new Logger(InvoicePaidStrategy.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly creditService: CreditService,
     private readonly paymentService: PaymentService,
-  ) { }
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext('InvoicePaidStrategy');
+  }
 
   supports(eventType: string): boolean {
-    return eventType === 'invoice.paid';
+    return eventType === STRIPE_EVENT_INVOICE_PAID;
   }
 
   async handle(event: WebhookEvent): Promise<void> {

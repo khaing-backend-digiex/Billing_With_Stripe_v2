@@ -7,15 +7,22 @@ import { BillingModule } from '@/billing/billing.module';
 import { CatalogModule } from '@/catalog/catalog.module';
 import { CreditModule } from '@/credit/credit.module';
 import { LoggerModule } from '@/logger/logger.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { GlobalExceptionFilter } from '@/common/filters/global-exception.filter';
 import { TransformResponseInterceptor } from '@/common/interceptors/transform-response.interceptor';
 import { CorrelationIdMiddleware } from '@/common/middleware/correlation-id.middleware';
+import { THROTTLER_TTL_MS, THROTTLER_LIMIT } from '@/common/constants/http.constants';
 
-  @Module({
+@Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ThrottlerModule.forRoot([{
+      ttl: THROTTLER_TTL_MS,
+      limit: THROTTLER_LIMIT,
+    }]),
     LoggerModule,
     PrismaModule,
     AuthModule,
@@ -24,6 +31,10 @@ import { CorrelationIdMiddleware } from '@/common/middleware/correlation-id.midd
     CreditModule,
   ],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,

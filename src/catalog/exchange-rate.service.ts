@@ -4,6 +4,10 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { ErrorCode } from '@/common/enums/error-code.enum';
 import { ServiceError } from '@/common/exceptions/service-error.exception';
 import { AppLogger } from '@/logger/app-logger';
+import { EXCHANGE_RATE_API_BASE_URL, EXCHANGE_RATE_STALE_HOURS, MS_PER_HOUR } from '@/common/constants/exchange-rate.constants';
+import { ENV_EXCHANGE_RATE_API_KEY } from '@/common/constants/env.constants';
+import { ERROR_EXCHANGE_RATE_API_KEY_NOT_DEFINED } from '@/common/constants/error-messages.constants';
+import { CURRENCY_USD, CURRENCY_EUR, CURRENCY_GBP, CURRENCY_VND } from '@/common/constants/currency.constants';
 
 interface ExchangeRateResponse {
   result: string;
@@ -16,18 +20,18 @@ interface ExchangeRateResponse {
 @Injectable()
 export class ExchangeRateService {
   private readonly apiKey: string;
-  private readonly baseUrl = 'https://v6.exchangerate-api.com/v6';
-  private readonly supportedCurrencies = ['USD', 'EUR', 'GBP'];
-  private readonly baseCurrency = 'VND';
+  private readonly baseUrl = EXCHANGE_RATE_API_BASE_URL;
+  public readonly supportedCurrencies = [CURRENCY_USD, CURRENCY_EUR, CURRENCY_GBP];
+  public readonly baseCurrency = CURRENCY_VND;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly logger: AppLogger,
   ) {
-    const apiKey = this.configService.get<string>('EXCHANGE_RATE_API_KEY');
+    const apiKey = this.configService.get<string>(ENV_EXCHANGE_RATE_API_KEY);
     if (!apiKey) {
-      throw new Error('EXCHANGE_RATE_API_KEY is not defined');
+      throw new Error(ERROR_EXCHANGE_RATE_API_KEY_NOT_DEFINED);
     }
     this.apiKey = apiKey;
     this.logger.setContext('ExchangeRateService');
@@ -129,9 +133,9 @@ export class ExchangeRateService {
       throw new ServiceError(ErrorCode.EXCHANGE_RATE_UNAVAILABLE, 'No cached exchange rate available');
     }
 
-    const hoursSinceUpdate = (Date.now() - cached.updatedAt.getTime()) / (1000 * 60 * 60);
+    const hoursSinceUpdate = (Date.now() - cached.updatedAt.getTime()) / MS_PER_HOUR;
     
-    if (hoursSinceUpdate > 24) {
+    if (hoursSinceUpdate > EXCHANGE_RATE_STALE_HOURS) {
       this.logger.error(`Cached rate for ${targetCurrency} is stale (${hoursSinceUpdate.toFixed(1)} hours old)`);
     }
 

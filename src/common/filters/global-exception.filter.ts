@@ -4,6 +4,14 @@ import { Prisma } from '../../../generated/prisma/client';
 import { ServiceError } from '@/common/exceptions/service-error.exception';
 import { ErrorCode } from '@/common/enums/error-code.enum';
 import { AppLogger } from '@/logger/app-logger';
+import {
+  ERROR_DATABASE_OPERATION_FAILED,
+  ERROR_DATABASE_VALIDATION_FAILED,
+  ERROR_INTERNAL_SERVER_ERROR,
+} from '@/common/constants/error-messages.constants';
+import { HEADER_REQUEST_ID } from '@/common/constants/http.constants';
+import { NODE_ENV_PRODUCTION } from '@/common/constants/auth.constants';
+import { ENV_NODE_ENV } from '@/common/constants/env.constants';
 
 @Catch()
 export class GlobalExceptionFilter extends BaseExceptionFilter {
@@ -39,23 +47,23 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
 
       case exception instanceof Prisma.PrismaClientKnownRequestError:
         status = HttpStatus.BAD_REQUEST;
-        message = 'Database operation failed';
+        message = ERROR_DATABASE_OPERATION_FAILED;
         error = ErrorCode.DATABASE_ERROR;
         details = {
           code: exception.code,
-          ...(process.env.NODE_ENV !== 'production' && { meta: exception.meta }),
+          ...(process.env[ENV_NODE_ENV] !== NODE_ENV_PRODUCTION && { meta: exception.meta }),
         };
         break;
 
       case exception instanceof Prisma.PrismaClientValidationError:
         status = HttpStatus.BAD_REQUEST;
-        message = 'Database validation failed';
+        message = ERROR_DATABASE_VALIDATION_FAILED;
         error = ErrorCode.VALIDATION_ERROR;
         details = exception.message;
         break;
 
       default:
-        message = 'Internal server error';
+        message = ERROR_INTERNAL_SERVER_ERROR;
         error = ErrorCode.INTERNAL_ERROR;
     }
 
@@ -67,7 +75,7 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
         ...(details && { details }),
       },
       meta: {
-        requestId: request.headers['x-request-id'] || request.reqId,
+        requestId: request.headers[HEADER_REQUEST_ID] || request.reqId,
         timestamp: new Date().toISOString(),
         path: request.url,
         method: request.method,

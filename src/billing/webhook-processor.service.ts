@@ -4,8 +4,8 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { WebhookStrategyFactory } from '@/billing/strategies/webhook-strategy.factory';
 import { WebhookStatus, WebhookEvent as PrismaWebhookEvent } from '../../generated/prisma/client';
 import { WebhookEvent as GenericWebhookEvent } from '@/billing/payments/types/payment.types';
-
 import { AppLogger } from '@/logger/app-logger';
+import { WEBHOOK_BATCH_SIZE } from '@/common/constants/billing.constants';
 
 @Injectable()
 export class WebhookProcessorService {
@@ -36,7 +36,7 @@ export class WebhookProcessorService {
       WHERE status = ${WebhookStatus.PENDING}::"WebhookStatus"
       AND "nextRetryAt" <= NOW()
       ORDER BY "nextRetryAt" ASC
-      LIMIT 20
+      LIMIT ${WEBHOOK_BATCH_SIZE}
       FOR UPDATE SKIP LOCKED
     `;
 
@@ -113,7 +113,7 @@ export class WebhookProcessorService {
       return;
     }
 
-    const nextRetryAt = this.calculateNextRetry();
+    const nextRetryAt = this.calculateNextRetry(newRetryCount);
 
     await this.prisma.webhookEvent.update({
       where: { id: event.id },
@@ -126,9 +126,10 @@ export class WebhookProcessorService {
     });
   }
 
-  private calculateNextRetry(): Date {
+  private calculateNextRetry(retryCount: number): Date {
     const now = new Date();
-    now.setDate(now.getDate() + 1);
+    const delayHours = Math.pow(2, retryCount);
+    now.setHours(now.getHours() + delayHours);
     return now;
   }
 }

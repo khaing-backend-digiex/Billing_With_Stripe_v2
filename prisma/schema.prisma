@@ -27,6 +27,7 @@ model User {
   refreshTokens  RefreshToken[]
 
   @@index([email])
+  @@index([stripeCustomerId])
   @@map("users")
 }
 
@@ -128,6 +129,7 @@ model Subscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
+  @@index([stripeSubscriptionId])
   @@map("subscriptions")
 }
 

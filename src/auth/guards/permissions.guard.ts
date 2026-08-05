@@ -8,6 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '@/auth/decorators/require-permissions.decorator';
 import { Permission } from '@/auth/enums/permission.enum';
+import { ERROR_USER_NOT_AUTHENTICATED, ERROR_INSUFFICIENT_PERMISSIONS } from '@/common/constants/error-messages.constants';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -27,7 +28,7 @@ export class PermissionsGuard implements CanActivate {
     const user = request['user'];
 
     if (!user) {
-      throw new UnauthorizedException('User not authenticated');
+      throw new UnauthorizedException(ERROR_USER_NOT_AUTHENTICATED);
     }
 
     const userPermissions = user.permissions || [];
@@ -37,7 +38,7 @@ export class PermissionsGuard implements CanActivate {
     );
 
     if (!hasPermission) {
-      throw new ForbiddenException('Insufficient permissions');
+      throw new ForbiddenException(ERROR_INSUFFICIENT_PERMISSIONS);
     }
 
     return true;

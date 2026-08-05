@@ -19,6 +19,17 @@ import {
 import { AppLogger } from '@/logger/app-logger';
 import { ErrorCode } from '@/common/enums/error-code.enum';
 import { ServiceError } from '@/common/exceptions/service-error.exception';
+import { ENV_STRIPE_SECRET_KEY, ENV_STRIPE_WEBHOOK_SECRET } from '@/common/constants/env.constants';
+import {
+  ERROR_STRIPE_SECRET_KEY_NOT_DEFINED,
+  ERROR_STRIPE_WEBHOOK_SECRET_NOT_DEFINED,
+} from '@/common/constants/error-messages.constants';
+import {
+  STRIPE_API_VERSION,
+  STRIPE_PAYMENT_METHOD_CARD,
+  STRIPE_DEFAULT_QUANTITY,
+  STRIPE_PRORATION_CREATE,
+} from '@/common/constants/stripe.constants';
 
 @Injectable()
 export class StripeAdapter implements IPaymentAdapter {
@@ -31,21 +42,21 @@ export class StripeAdapter implements IPaymentAdapter {
   ) {
     this.logger.setContext('StripeAdapter');
 
-    const secretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
-    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
+    const secretKey = this.configService.get<string>(ENV_STRIPE_SECRET_KEY);
+    const webhookSecret = this.configService.get<string>(ENV_STRIPE_WEBHOOK_SECRET);
 
     if (!secretKey) {
-      throw new ServiceError(ErrorCode.INTERNAL_ERROR, 'STRIPE_SECRET_KEY is not defined');
+      throw new ServiceError(ErrorCode.INTERNAL_ERROR, ERROR_STRIPE_SECRET_KEY_NOT_DEFINED);
     }
 
     if (!webhookSecret) {
-      throw new ServiceError(ErrorCode.INTERNAL_ERROR, 'STRIPE_WEBHOOK_SECRET is not defined');
+      throw new ServiceError(ErrorCode.INTERNAL_ERROR, ERROR_STRIPE_WEBHOOK_SECRET_NOT_DEFINED);
     }
 
     this.webhookSecret = webhookSecret;
 
     this.stripe = new Stripe(secretKey, {
-      apiVersion: '2026-06-24.dahlia',
+      apiVersion: STRIPE_API_VERSION,
     });
   }
 
@@ -69,10 +80,11 @@ export class StripeAdapter implements IPaymentAdapter {
   }
 
   private mapRawPrice(price: Stripe.Price): PaymentPrice {
+    const DEFAULT_AMOUNT = 0;
     return {
       id: price.id,
       productId: typeof price.product === 'string' ? price.product : price.product.id,
-      amount: price.unit_amount || 0,
+      amount: price.unit_amount || DEFAULT_AMOUNT,
       currency: price.currency,
       interval: price.recurring?.interval,
       active: price.active,
@@ -186,8 +198,8 @@ export class StripeAdapter implements IPaymentAdapter {
   }): Promise<PaymentSession> {
     try {
       const session = await this.stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [{ price: params.priceId, quantity: 1 }],
+        payment_method_types: [STRIPE_PAYMENT_METHOD_CARD],
+        line_items: [{ price: params.priceId, quantity: STRIPE_DEFAULT_QUANTITY }],
         mode: params.mode,
         customer: params.customerId,
         success_url: params.successUrl,

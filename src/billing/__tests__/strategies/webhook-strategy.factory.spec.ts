@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { WebhookStrategyFactory } from '@/billing/strategies/webhook-strategy.factory';
+import { WebhookStrategyFactory, WEBHOOK_STRATEGIES_TOKEN } from '@/billing/strategies/webhook-strategy.factory';
+import { AppLogger } from '@/logger/app-logger';
 import { CheckoutSessionCompletedStrategy } from '@/billing/strategies/checkout/checkout-session-completed.strategy';
 import { InvoicePaidStrategy } from '@/billing/strategies/invoice/invoice-paid.strategy';
 import { InvoicePaymentFailedStrategy } from '@/billing/strategies/invoice/invoice-payment-failed.strategy';
@@ -15,7 +16,7 @@ describe('WebhookStrategyFactory', () => {
       providers: [
         WebhookStrategyFactory,
         {
-          provide: 'WEBHOOK_STRATEGIES',
+          provide: WEBHOOK_STRATEGIES_TOKEN,
           useFactory: () => [
             {
               supports: (eventType: string) => eventType === 'checkout.session.completed',
@@ -33,6 +34,15 @@ describe('WebhookStrategyFactory', () => {
               supports: (eventType: string) => eventType === 'customer.subscription.deleted',
             },
           ],
+        },
+        {
+          provide: AppLogger,
+          useValue: {
+            setContext: jest.fn(),
+            log: jest.fn(),
+            error: jest.fn(),
+            warn: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -88,7 +98,7 @@ describe('WebhookStrategyFactory', () => {
           providers: [
             WebhookStrategyFactory,
             {
-              provide: 'WEBHOOK_STRATEGIES',
+              provide: WEBHOOK_STRATEGIES_TOKEN,
               useFactory: () => [
                 {
                   supports: (eventType: string) => eventType === 'invoice.paid',
@@ -97,6 +107,15 @@ describe('WebhookStrategyFactory', () => {
                   supports: (eventType: string) => eventType === 'invoice.paid',
                 },
               ],
+            },
+            {
+              provide: AppLogger,
+              useValue: {
+                setContext: jest.fn(),
+                log: jest.fn(),
+                error: jest.fn(),
+                warn: jest.fn(),
+              },
             },
           ],
         }).compile()

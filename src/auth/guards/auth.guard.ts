@@ -7,6 +7,8 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { AuthRequest } from '@/auth/interfaces/auth-request.interface';
+import { AUTH_SCHEME_BEARER } from '@/common/constants/auth.constants';
+import { ERROR_NO_AUTH_TOKEN, ERROR_INVALID_TOKEN } from '@/common/constants/error-messages.constants';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -20,14 +22,14 @@ export class AuthGuard implements CanActivate {
     const token = this.extractTokenFromHeader(request);
 
     if (!token) {
-      throw new UnauthorizedException('No authentication token provided');
+      throw new UnauthorizedException(ERROR_NO_AUTH_TOKEN);
     }
 
     try {
       const payload = await this.jwtService.verifyAsync(token);
       request.user = payload;
     } catch {
-      throw new UnauthorizedException('Invalid or expired token');
+      throw new UnauthorizedException(ERROR_INVALID_TOKEN);
     }
 
     return true;
@@ -35,6 +37,6 @@ export class AuthGuard implements CanActivate {
 
   private extractTokenFromHeader(request: AuthRequest): string | undefined {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    return type === 'Bearer' ? token : undefined;
+    return type === AUTH_SCHEME_BEARER ? token : undefined;
   }
 }

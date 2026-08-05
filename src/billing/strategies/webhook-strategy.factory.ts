@@ -1,16 +1,28 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { WebhookStrategy } from '@/billing/strategies/webhook-strategy.interface';
+import { AppLogger } from '@/logger/app-logger';
+import {
+  STRIPE_EVENT_CHECKOUT_COMPLETED,
+  STRIPE_EVENT_CHECKOUT_EXPIRED,
+  STRIPE_EVENT_INVOICE_PAID,
+  STRIPE_EVENT_INVOICE_FAILED,
+  STRIPE_EVENT_SUBSCRIPTION_CREATED,
+  STRIPE_EVENT_SUBSCRIPTION_UPDATED,
+  STRIPE_EVENT_SUBSCRIPTION_DELETED,
+} from '@/common/constants/stripe-event.constants';
+
+export const WEBHOOK_STRATEGIES_TOKEN = 'WEBHOOK_STRATEGIES';
 
 @Injectable()
 export class WebhookStrategyFactory {
-  private readonly logger = new Logger(WebhookStrategyFactory.name);
   private readonly strategies: WebhookStrategy[];
 
   constructor(
-    @Inject('WEBHOOK_STRATEGIES')
+    @Inject(WEBHOOK_STRATEGIES_TOKEN)
     strategies: WebhookStrategy[],
+    private readonly logger: AppLogger,
   ) {
+    this.logger.setContext('WebhookStrategyFactory');
     this.strategies = strategies;
     this.validateNoDuplicates();
   }
@@ -37,13 +49,13 @@ export class WebhookStrategyFactory {
 
   private getSupportedTypes(strategy: WebhookStrategy): string[] {
     const knownTypes = [
-      'checkout.session.completed',
-      'checkout.session.expired',
-      'invoice.paid',
-      'invoice.payment_failed',
-      'customer.subscription.created',
-      'customer.subscription.updated',
-      'customer.subscription.deleted',
+      STRIPE_EVENT_CHECKOUT_COMPLETED,
+      STRIPE_EVENT_CHECKOUT_EXPIRED,
+      STRIPE_EVENT_INVOICE_PAID,
+      STRIPE_EVENT_INVOICE_FAILED,
+      STRIPE_EVENT_SUBSCRIPTION_CREATED,
+      STRIPE_EVENT_SUBSCRIPTION_UPDATED,
+      STRIPE_EVENT_SUBSCRIPTION_DELETED,
     ];
     return knownTypes.filter((t) => strategy.supports(t));
   }
