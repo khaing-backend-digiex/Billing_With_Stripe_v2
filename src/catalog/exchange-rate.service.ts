@@ -11,10 +11,14 @@ import { CURRENCY_USD, CURRENCY_EUR, CURRENCY_GBP, CURRENCY_VND } from '@/common
 
 interface ExchangeRateResponse {
   result: string;
-  base_code: string;
-  target_code: string;
-  conversion_rate: number;
+  documentation: string;
+  terms_of_use: string;
+  time_last_update_unix: number;
   time_last_update_utc: string;
+  time_next_update_unix: number;
+  time_next_update_utc: string;
+  base_code: string;
+  conversion_rates: Record<string, number>;
 }
 
 @Injectable()
@@ -37,35 +41,73 @@ export class ExchangeRateService {
     this.logger.setContext('ExchangeRateService');
   }
 
+  async syncExchangeRates(): Promise<void> {
+    try {
+      this.logger.log(`Syncing exchange rates for base currency: ${this.baseCurrency}`);
+      const rates = await this.fetchAllRatesFromApi();
+      await this.cacheRates(rates);
+      this.logger.log('Successfully synced exchange rates from API.');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to sync exchange rates: ${errorMessage}`);
+      throw new ServiceError(ErrorCode.EXCHANGE_RATE_UNAVAILABLE, 'Could not sync rates from API');
+    }
+  }
+
   async getExchangeRate(targetCurrency: string): Promise<number> {
     if (!this.supportedCurrencies.includes(targetCurrency)) {
       throw new Error(`Unsupported currency: ${targetCurrency}`);
     }
 
-    try {
-      const rate = await this.fetchFromApi(targetCurrency);
-      await this.cacheRate(targetCurrency, rate);
-      return rate;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Failed to fetch exchange rate from API, using cached rate: ${errorMessage}`);
-      return this.getCachedRate(targetCurrency);
-    }
-  }
+    const cached = await this.prisma.exchangeRate.findUnique({
+      where: {
+        baseCurrency_targetCurrency: {
+          baseCurrency: this.baseCurrency,
+          targetCurrency,
+        },
+      },
+    });
 
-  async getAllExchangeRates(): Promise<Record<string, number>> {
-    const rates: Record<string, number> = {};
+    const isStale = !cached || (Date.now() - cached.updatedAt.getTime()) / MS_PER_HOUR > EXCHANGE_RATE_STALE_HOURS;
 
-    for (const currency of this.supportedCurrencies) {
+    if (isStale) {
       try {
-        rates[currency] = await this.getExchangeRate(currency);
+        await this.syncExchangeRates();
+        const updated = await this.prisma.exchangeRate.findUnique({
+          where: {
+            baseCurrency_targetCurrency: {
+              baseCurrency: this.baseCurrency,
+              targetCurrency,
+            },
+          },
+        });
+        if (updated) return Number(updated.rate);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Failed to get rate for ${currency}: ${errorMessage}`);
-        throw new ServiceError(ErrorCode.EXCHANGE_RATE_UNAVAILABLE, 'Exchange rate service temporarily unavailable');
+        this.logger.warn(`Using stale cached rate for ${targetCurrency} due to API error.`);
       }
     }
 
+    if (!cached) {
+      throw new ServiceError(ErrorCode.EXCHANGE_RATE_UNAVAILABLE, 'No cached exchange rate available');
+    }
+
+    return Number(cached.rate);
+  }
+
+  async getAllExchangeRates(): Promise<Record<string, number>> {
+    // Calling getExchangeRate for the first supported currency will trigger a sync if stale
+    if (this.supportedCurrencies.length > 0) {
+      await this.getExchangeRate(this.supportedCurrencies[0]);
+    }
+
+    const cachedRates = await this.prisma.exchangeRate.findMany({
+      where: { baseCurrency: this.baseCurrency, targetCurrency: { in: this.supportedCurrencies } },
+    });
+
+    const rates: Record<string, number> = {};
+    for (const rate of cachedRates) {
+      rates[rate.targetCurrency] = Number(rate.rate);
+    }
     return rates;
   }
 
@@ -81,8 +123,8 @@ export class ExchangeRateService {
     }));
   }
 
-  private async fetchFromApi(targetCurrency: string): Promise<number> {
-    const url = `${this.baseUrl}/${this.apiKey}/pair/${this.baseCurrency}/${targetCurrency}`;
+  private async fetchAllRatesFromApi(): Promise<Record<string, number>> {
+    const url = `${this.baseUrl}/${this.apiKey}/latest/${this.baseCurrency}`;
     
     const response = await fetch(url);
     
@@ -96,49 +138,35 @@ export class ExchangeRateService {
       throw new Error(`ExchangeRate-API error: ${data.result}`);
     }
 
-    return data.conversion_rate;
+    return data.conversion_rates;
   }
 
-  private async cacheRate(targetCurrency: string, rate: number): Promise<void> {
-    await this.prisma.exchangeRate.upsert({
-      where: {
-        baseCurrency_targetCurrency: {
-          baseCurrency: this.baseCurrency,
-          targetCurrency,
+  private async cacheRates(rates: Record<string, number>): Promise<void> {
+    const operations = this.supportedCurrencies.map((currency) => {
+      const rate = rates[currency];
+      if (rate === undefined) return null;
+      
+      return this.prisma.exchangeRate.upsert({
+        where: {
+          baseCurrency_targetCurrency: {
+            baseCurrency: this.baseCurrency,
+            targetCurrency: currency,
+          },
         },
-      },
-      update: {
-        rate,
-        updatedAt: new Date(),
-      },
-      create: {
-        baseCurrency: this.baseCurrency,
-        targetCurrency,
-        rate,
-      },
-    });
-  }
-
-  private async getCachedRate(targetCurrency: string): Promise<number> {
-    const cached = await this.prisma.exchangeRate.findUnique({
-      where: {
-        baseCurrency_targetCurrency: {
-          baseCurrency: this.baseCurrency,
-          targetCurrency,
+        update: {
+          rate,
+          updatedAt: new Date(),
         },
-      },
-    });
+        create: {
+          baseCurrency: this.baseCurrency,
+          targetCurrency: currency,
+          rate,
+        },
+      });
+    }).filter((op) => op !== null);
 
-    if (!cached) {
-      throw new ServiceError(ErrorCode.EXCHANGE_RATE_UNAVAILABLE, 'No cached exchange rate available');
+    if (operations.length > 0) {
+      await this.prisma.$transaction(operations);
     }
-
-    const hoursSinceUpdate = (Date.now() - cached.updatedAt.getTime()) / MS_PER_HOUR;
-    
-    if (hoursSinceUpdate > EXCHANGE_RATE_STALE_HOURS) {
-      this.logger.error(`Cached rate for ${targetCurrency} is stale (${hoursSinceUpdate.toFixed(1)} hours old)`);
-    }
-
-    return Number(cached.rate);
   }
 }

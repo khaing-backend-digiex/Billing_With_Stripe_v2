@@ -13,6 +13,7 @@ import { GlobalExceptionFilter } from '@/common/filters/global-exception.filter'
 import { TransformResponseInterceptor } from '@/common/interceptors/transform-response.interceptor';
 import { CorrelationIdMiddleware } from '@/common/middleware/correlation-id.middleware';
 import { THROTTLER_TTL_MS, THROTTLER_LIMIT } from '@/common/constants/http.constants';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { THROTTLER_TTL_MS, THROTTLER_LIMIT } from '@/common/constants/http.const
     BillingModule,
     CatalogModule,
     CreditModule,
+    UsersModule,
   ],
   providers: [
     {

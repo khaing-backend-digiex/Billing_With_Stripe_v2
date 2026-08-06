@@ -13,6 +13,10 @@ import { InvoicePaidStrategy } from '@/billing/strategies/invoice/invoice-paid.s
 import { InvoicePaymentFailedStrategy } from '@/billing/strategies/invoice/invoice-payment-failed.strategy';
 import { CustomerSubscriptionUpdatedStrategy } from '@/billing/strategies/subscription/customer-subscription-updated.strategy';
 import { CustomerSubscriptionDeletedStrategy } from '@/billing/strategies/subscription/customer-subscription-deleted.strategy';
+import { ProductDeletedStrategy } from '@/billing/strategies/catalog/product-deleted.strategy';
+import { ProductUpsertStrategy } from '@/billing/strategies/catalog/product-upsert.strategy';
+import { PriceUpsertStrategy } from '@/billing/strategies/catalog/price-upsert.strategy';
+import { PriceDeletedStrategy } from '@/billing/strategies/catalog/price-deleted.strategy';
 import { ScheduleModule } from '@nestjs/schedule';
 import { WebhookStrategy } from '@/billing/strategies/webhook-strategy.interface';
 import { WEBHOOK_STRATEGIES_TOKEN } from '@/billing/strategies/webhook-strategy.factory';
@@ -23,6 +27,10 @@ const webhookStrategies = [
   InvoicePaymentFailedStrategy,
   CustomerSubscriptionUpdatedStrategy,
   CustomerSubscriptionDeletedStrategy,
+  ProductDeletedStrategy,
+  ProductUpsertStrategy,
+  PriceUpsertStrategy,
+  PriceDeletedStrategy,
 ];
 
 @Module({

@@ -108,14 +108,16 @@ export class AuthService {
         data: { userId: user.id, roleName: PredefinedRole.USER },
       });
 
-      await tx.subscription.create({
-        data: {
-          userId: user.id,
-          stripeSubscriptionId,
-          plan: PlanType.FREE,
-          status: SubStatus.ACTIVE,
-        },
-      });
+      if (stripeSubscriptionId) {
+        await tx.subscription.create({
+          data: {
+            userId: user.id,
+            stripeSubscriptionId,
+            plan: PlanType.FREE,
+            status: SubStatus.ACTIVE,
+          },
+        });
+      }
 
       await tx.creditBalance.create({
         data: {

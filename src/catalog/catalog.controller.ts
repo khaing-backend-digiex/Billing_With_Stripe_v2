@@ -13,12 +13,12 @@ import { Permission } from '@/auth/enums/permission.enum';
 @ApiTags('Catalog')
 @Controller('catalog')
 @UseGuards(AuthGuard, PermissionsGuard)
-@RequirePermissions(Permission.CATALOG_MANAGE)
 @ApiBearerAuth()
 export class CatalogController {
   constructor(private readonly catalogService: CatalogService) {}
 
   @Post('products')
+  @RequirePermissions(Permission.CATALOG_MANAGE)
   @ApiOperation({ summary: 'Create a new product' })
   @ApiResponse({ status: 201, description: 'Product created', type: ProductWithPricesResponseDto })
   createProduct(@Body() dto: CreateProductDto) {
@@ -26,6 +26,7 @@ export class CatalogController {
   }
 
   @Get('products')
+  @RequirePermissions(Permission.CATALOG_READ)
   @ApiOperation({ summary: 'Get all products with pagination' })
   @ApiResponse({ status: 200, description: 'List of products', type: [ProductWithPricesResponseDto] })
   findAllProducts(@Query() query: ProductListQueryDto) {
@@ -33,6 +34,7 @@ export class CatalogController {
   }
 
   @Get('products/:id')
+  @RequirePermissions(Permission.CATALOG_READ)
   @ApiOperation({ summary: 'Get product by ID' })
   @ApiResponse({ status: 200, description: 'Product found', type: ProductWithPricesResponseDto })
   @ApiResponse({ status: 404, description: 'Product not found' })
@@ -41,6 +43,7 @@ export class CatalogController {
   }
 
   @Put('products/:id')
+  @RequirePermissions(Permission.CATALOG_MANAGE)
   @ApiOperation({ summary: 'Update product' })
   @ApiResponse({ status: 200, description: 'Product updated', type: ProductWithPricesResponseDto })
   @ApiResponse({ status: 404, description: 'Product not found' })
@@ -49,6 +52,7 @@ export class CatalogController {
   }
 
   @Post('products/:id/refresh-prices')
+  @RequirePermissions(Permission.CATALOG_MANAGE)
   @ApiOperation({ summary: 'Refresh product prices' })
   @ApiResponse({ status: 200, description: 'Prices refreshed', type: ProductWithPricesResponseDto })
   @ApiResponse({ status: 404, description: 'Product not found' })
@@ -57,9 +61,18 @@ export class CatalogController {
   }
 
   @Get('exchange-rates')
+  @RequirePermissions(Permission.CATALOG_READ)
   @ApiOperation({ summary: 'Get exchange rates' })
   @ApiResponse({ status: 200, description: 'Exchange rates', type: [ExchangeRateResponseDto] })
   getExchangeRates() {
     return this.catalogService.getExchangeRates();
+  }
+
+  @Post('exchange-rates/sync')
+  @RequirePermissions(Permission.CATALOG_MANAGE)
+  @ApiOperation({ summary: 'Manually synchronize exchange rates from API' })
+  @ApiResponse({ status: 200, description: 'Exchange rates synchronized successfully' })
+  syncExchangeRates() {
+    return this.catalogService.syncExchangeRates();
   }
 }

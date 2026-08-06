@@ -56,18 +56,15 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategy {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        // Update subscription status to PAST_DUE
         await tx.subscription.update({
           where: { id: subscription.id },
           data: { status: SubStatus.PAST_DUE },
         });
         this.logger.log(`Subscription status changed to PAST_DUE: subscriptionId=${subscription.id}`);
 
-        // Freeze addon credits
         await this.creditService.freezeAddonCredits(subscription.userId, tx);
         this.logger.log(`Addon credits frozen: userId=${subscription.userId}`);
 
-        // Reset plan credits to zero
         await tx.creditBalance.update({
           where: { userId: subscription.userId },
           data: { planCredits: ZERO_CREDITS },

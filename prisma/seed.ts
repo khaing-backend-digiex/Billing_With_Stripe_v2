@@ -31,11 +31,13 @@ async function main() {
   const permissions = [
     { name: 'CREATEUSER', description: 'Create new users' },
     { name: 'GETUSER', description: 'Read user information' },
+    { name: 'UPDATEUSER', description: 'Update user roles and information' },
     { name: 'GETUSERPROFILE', description: 'Read user profile information' },
     { name: 'GETUSERSUB', description: 'Read user subscription information' },
     { name: 'BILLING_ACCESS', description: 'Access billing and checkout endpoints' },
     { name: 'CREDIT_ACCESS', description: 'Access credit consumption and balance endpoints' },
     { name: 'CATALOG_MANAGE', description: 'Manage product catalog and pricing' },
+    { name: 'CATALOG_READ', description: 'Read product catalog and exchange rates' },
   ];
 
   for (const permission of permissions) {
@@ -77,7 +79,7 @@ async function main() {
   }
 
   if (userRole) {
-    const userPermissionNames = ['GETUSERPROFILE', 'GETUSERSUB', 'BILLING_ACCESS', 'CREDIT_ACCESS'];
+    const userPermissionNames = ['GETUSERPROFILE', 'GETUSERSUB', 'BILLING_ACCESS', 'CREDIT_ACCESS', 'CATALOG_READ'];
     const userPermissions = await prisma.permission.findMany({
       where: { name: { in: userPermissionNames } },
     });

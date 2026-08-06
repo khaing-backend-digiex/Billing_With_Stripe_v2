@@ -44,7 +44,7 @@ export class BillingController {
 
   @Get('subscriptions')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions(Permission.BILLING_ACCESS)
+  @RequirePermissions(Permission.GETUSERSUB)
   @ApiOperation({ summary: 'Get user subscriptions' })
   @ApiResponse({ status: 200, description: 'List of subscriptions', type: [SubscriptionResponseDto] })
   async getUserSubscriptions(

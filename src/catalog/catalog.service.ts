@@ -9,7 +9,7 @@ import { ErrorCode } from '@/common/enums/error-code.enum';
 import { ServiceError } from '@/common/exceptions/service-error.exception';
 import { AppLogger } from '@/logger/app-logger';
 import { CATALOG_DEFAULT_LIMIT } from '@/common/constants/pagination.constants';
-import { CURRENCY_VND, DEFAULT_CURRENCY } from '@/common/constants/currency.constants';
+import { CURRENCY_VND, DEFAULT_CURRENCY, ZERO_DECIMAL_CURRENCIES } from '@/common/constants/currency.constants';
 
 @Injectable()
 export class CatalogService {
@@ -56,7 +56,11 @@ export class CatalogService {
       
       if (currency !== CURRENCY_VND) {
         const rate = await this.exchangeRateService.getExchangeRate(currency);
-        amount = Math.round(dto.basePrice * rate);
+        if (!ZERO_DECIMAL_CURRENCIES.includes(currency)) {
+          amount = Math.round(dto.basePrice * rate * 100);
+        } else {
+          amount = Math.round(dto.basePrice * rate);
+        }
       }
 
       const stripePrice = await this.paymentService.createPrice(
@@ -167,7 +171,11 @@ export class CatalogService {
       
       if (currency !== CURRENCY_VND) {
         const rate = await this.exchangeRateService.getExchangeRate(currency);
-        amount = Math.round(vndPrice.amount * rate);
+        if (!ZERO_DECIMAL_CURRENCIES.includes(currency)) {
+          amount = Math.round(vndPrice.amount * rate * 100);
+        } else {
+          amount = Math.round(vndPrice.amount * rate);
+        }
       }
 
       const stripePrice = await this.paymentService.createPrice(
@@ -198,5 +206,10 @@ export class CatalogService {
 
   async getExchangeRates() {
     return this.exchangeRateService.getCachedRates();
+  }
+
+  async syncExchangeRates() {
+    await this.exchangeRateService.syncExchangeRates();
+    return { success: true, message: 'Exchange rates synchronized successfully' };
   }
 }

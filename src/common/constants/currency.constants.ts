@@ -11,3 +11,7 @@ export const SUPPORTED_CURRENCIES = [
 ];
 
 export const DEFAULT_CURRENCY = CURRENCY_VND;
+
+export const ZERO_DECIMAL_CURRENCIES = [
+  CURRENCY_VND,
+];
