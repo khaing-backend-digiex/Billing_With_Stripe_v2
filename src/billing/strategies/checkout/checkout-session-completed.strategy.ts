@@ -37,15 +37,21 @@ export class CheckoutSessionCompletedStrategy implements WebhookStrategy {
   }
 
   async handle(event: WebhookEvent): Promise<void> {
-    const session = event.payload as PaymentSession;
+    const session = this.paymentService.mapRawCheckoutSession(event.payload);
     const sessionId = session.id;
 
-    this.logger.log(`Processing ${STRIPE_EVENT_CHECKOUT_COMPLETED}: ${sessionId}`);
+    this.logger.log(`Checkout session completed: sessionId=${sessionId}, customerId=${session.customerId}, mode=${session.mode}`);
 
-    if (session.metadata?.[METADATA_KEY_TYPE] === METADATA_TYPE_ADDON) {
-      await this.handleAddonPurchase(session);
-    } else {
-      await this.handleSubscriptionPurchase(session);
+    try {
+      if (session.metadata?.[METADATA_KEY_TYPE] === METADATA_TYPE_ADDON) {
+        await this.handleAddonPurchase(session);
+      } else {
+        await this.handleSubscriptionPurchase(session);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Checkout session processing failed: sessionId=${sessionId} - ${errorMessage}`);
+      throw error;
     }
   }
 
@@ -58,7 +64,7 @@ export class CheckoutSessionCompletedStrategy implements WebhookStrategy {
       throw new Error(ERROR_MISSING_USER_ID);
     }
 
-    this.logger.log(`Processing addon purchase: ${credits} credits for user ${userId}`);
+    this.logger.log(`Processing addon purchase: sessionId=${session.id}, userId=${userId}, credits=${credits}`);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.addonPurchase.create({
@@ -72,7 +78,7 @@ export class CheckoutSessionCompletedStrategy implements WebhookStrategy {
       await this.creditService.addAddonCredits(userId, credits, tx);
     });
 
-    this.logger.log(`Addon purchase completed: ${credits} credits added to user ${userId}`);
+    this.logger.log(`Addon purchase completed: sessionId=${session.id}, userId=${userId}, credits=${credits}, paymentId=${stripePaymentId}`);
   }
 
   private async handleSubscriptionPurchase(session: PaymentSession): Promise<void> {
@@ -84,12 +90,12 @@ export class CheckoutSessionCompletedStrategy implements WebhookStrategy {
       throw new Error(ERROR_MISSING_USER_ID_OR_PLAN_TYPE);
     }
 
-    this.logger.log(`Processing subscription purchase: ${planType} for user ${userId}`);
+    this.logger.log(`Processing subscription purchase: sessionId=${session.id}, userId=${userId}, planType=${planType}, subscriptionId=${stripeSubscriptionId}`);
 
     const stripeSubscription = await this.paymentService.getSubscription(stripeSubscriptionId);
 
     if (!stripeSubscription) {
-      this.logger.error(`${ERROR_SUBSCRIPTION_NOT_FOUND}: ${stripeSubscriptionId}`);
+      this.logger.error(`${ERROR_SUBSCRIPTION_NOT_FOUND}: sessionId=${session.id}, subscriptionId=${stripeSubscriptionId}`);
       throw new Error(`${ERROR_SUBSCRIPTION_NOT_FOUND}: ${stripeSubscriptionId}`);
     }
 
@@ -127,6 +133,6 @@ export class CheckoutSessionCompletedStrategy implements WebhookStrategy {
       }
     });
 
-    this.logger.log(`Subscription purchase completed: ${planType} for user ${userId}`);
+    this.logger.log(`Subscription purchase completed: sessionId=${session.id}, userId=${userId}, planType=${planType}, subscriptionId=${stripeSubscriptionId}`);
   }
 }

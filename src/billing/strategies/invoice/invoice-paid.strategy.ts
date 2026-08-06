@@ -28,7 +28,7 @@ export class InvoicePaidStrategy implements WebhookStrategy {
     const paidInvoice = this.paymentService.mapRawInvoice(event.payload);
     const invoiceId = paidInvoice.id;
 
-    this.logger.log(`Processing invoice.paid: ${invoiceId}`);
+    this.logger.log(`Invoice paid: invoiceId=${invoiceId}, subscriptionId=${paidInvoice.subscriptionId}, amountPaid=${paidInvoice.amountPaid}, amountDue=${paidInvoice.amountDue}`);
 
     const stripeSubscriptionId = paidInvoice.subscriptionId;
 
@@ -42,7 +42,7 @@ export class InvoicePaidStrategy implements WebhookStrategy {
     });
 
     if (!subscription) {
-      this.logger.warn(`Subscription not found for stripeSubscriptionId: ${stripeSubscriptionId}`);
+      this.logger.warn(`Subscription not found for invoice: invoiceId=${invoiceId}, subscriptionId=${stripeSubscriptionId}`);
       return;
     }
 
@@ -51,20 +51,28 @@ export class InvoicePaidStrategy implements WebhookStrategy {
       return;
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      if (subscription.status === SubStatus.PAST_DUE) {
-        await tx.subscription.update({
-          where: { id: subscription.id },
-          data: { status: SubStatus.ACTIVE },
-        });
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        if (subscription.status === SubStatus.PAST_DUE) {
+          await tx.subscription.update({
+            where: { id: subscription.id },
+            data: { status: SubStatus.ACTIVE },
+          });
 
-        await this.creditService.unfreezeAddonCredits(subscription.userId, tx);
-      }
+          await this.creditService.unfreezeAddonCredits(subscription.userId, tx);
+          this.logger.log(`Subscription reactivated from PAST_DUE: subscriptionId=${subscription.id}`);
+        }
 
-      const creditAmount = PLAN_CREDIT_LIMITS[subscription.plan];
-      await this.creditService.resetPlanCredits(subscription.userId, creditAmount, tx);
-    });
+        const creditAmount = PLAN_CREDIT_LIMITS[subscription.plan];
+        await this.creditService.resetPlanCredits(subscription.userId, creditAmount, tx);
+        this.logger.log(`Credits reset: subscriptionId=${subscription.id}, plan=${subscription.plan}, amount=${creditAmount}`);
+      });
 
-    this.logger.log(`Invoice paid: reset credits and reactivated subscription ${subscription.id}`);
+      this.logger.log(`Invoice paid processing completed: invoiceId=${invoiceId}, subscriptionId=${subscription.id}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Invoice payment processing failed: invoiceId=${invoiceId} - ${errorMessage}`);
+      throw error;
+    }
   }
 }

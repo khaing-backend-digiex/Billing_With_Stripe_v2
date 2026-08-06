@@ -25,6 +25,17 @@ export class CatalogService {
   async createProduct(dto: CreateProductDto) {
     this.logger.log(`Creating product: ${dto.name}`);
 
+    const existingProduct = await this.prisma.stripeProduct.findFirst({
+      where: { name: dto.name },
+    });
+    
+    if (existingProduct) {
+      throw new ServiceError(
+        ErrorCode.PRODUCT_NAME_ALREADY_EXISTS,
+        `Product with name "${dto.name}" already exists.`,
+      );
+    }
+
     const stripeProduct = await this.paymentService.createProduct(dto.name, {
       planType: dto.planType,
     });

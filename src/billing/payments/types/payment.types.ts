@@ -44,6 +44,8 @@ export interface PaymentSession {
   subscriptionId?: string | null;
   paymentIntentId?: string | null;
   metadata?: Record<string, string>;
+  customerId?: string | null;
+  mode?: string;
 }
 
 export interface PaymentMethodDetails {

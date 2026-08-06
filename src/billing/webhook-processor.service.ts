@@ -47,6 +47,7 @@ export class WebhookProcessorService {
     this.logger.log(`Processing ${events.length} pending webhook events`);
 
     for (const event of events) {
+      this.logger.log(`Processing event: ${event.stripeEventId} (${event.type})`);
       await this.processEvent(event);
     }
   }
@@ -55,7 +56,8 @@ export class WebhookProcessorService {
     const strategy = this.strategyFactory.getStrategy(event.type);
 
     if (!strategy) {
-      this.logger.warn(`No strategy found for event type: ${event.type}`);
+      this.logger.warn(` UNHANDLED EVENT: ${event.type} (id: ${event.stripeEventId}) - No strategy registered`);
+      this.logger.warn(`Event payload keys: ${event.payload ? Object.keys(event.payload as object).join(', ') : 'null'}`);
       await this.prisma.webhookEvent.update({
         where: { id: event.id },
         data: { status: WebhookStatus.DONE },
@@ -85,8 +87,10 @@ export class WebhookProcessorService {
         },
       });
 
-      this.logger.log(`Successfully processed event: ${event.type}`);
+      this.logger.log(`Successfully processed event: ${event.stripeEventId} (${event.type})`);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Event processing failed: ${event.stripeEventId} (${event.type}) - ${errorMessage}`);
       await this.handleFailure(event, error instanceof Error ? error : new Error(String(error)));
     }
   }
@@ -131,5 +135,63 @@ export class WebhookProcessorService {
     const delayHours = Math.pow(2, retryCount);
     now.setHours(now.getHours() + delayHours);
     return now;
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async logWebhookStatistics() {
+    const twentyFourHoursAgo = new Date();
+    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
+    try {
+      const statistics = await this.prisma.$queryRaw<
+        Array<{
+          type: string;
+          status: string;
+          count: number;
+        }>
+      >`
+        SELECT type, status::text, COUNT(*)::int as count
+        FROM webhook_events
+        WHERE "createdAt" >= ${twentyFourHoursAgo}
+        GROUP BY type, status
+        ORDER BY type, status
+      `;
+
+      if (statistics.length === 0) {
+        this.logger.log(' Webhook Event Statistics (last 24h): No events received');
+        return;
+      }
+
+      this.logger.log('Webhook Event Statistics (last 24h):');
+      this.logger.log('─'.repeat(80));
+
+      const byType = statistics.reduce(
+        (acc, stat) => {
+          if (!acc[stat.type]) {
+            acc[stat.type] = { total: 0, byStatus: {} };
+          }
+          acc[stat.type].total += stat.count;
+          acc[stat.type].byStatus[stat.status] = stat.count;
+          return acc;
+        },
+        {} as Record<string, { total: number; byStatus: Record<string, number> }>,
+      );
+
+      Object.entries(byType)
+        .sort((a, b) => b[1].total - a[1].total)
+        .forEach(([type, data]) => {
+          const statusBreakdown = Object.entries(data.byStatus)
+            .map(([status, count]) => `${status}:${count}`)
+            .join(', ');
+          this.logger.log(`  ${type}: ${data.total} total (${statusBreakdown})`);
+        });
+
+      this.logger.log('─'.repeat(80));
+      const totalEvents = statistics.reduce((sum, stat) => sum + stat.count, 0);
+      this.logger.log(`Total: ${totalEvents} events`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to generate webhook statistics: ${errorMessage}`);
+    }
   }
 }

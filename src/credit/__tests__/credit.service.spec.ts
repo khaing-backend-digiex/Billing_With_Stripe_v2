@@ -56,9 +56,7 @@ describe('CreditService', () => {
       mockPrisma.$transaction.mockImplementation(async (callback) => {
         return callback(mockPrisma);
       });
-      mockPrisma.creditBalance.findUnique
-        .mockResolvedValueOnce(mockBalance)
-        .mockResolvedValueOnce(updatedBalance);
+      mockPrisma.creditBalance.findUnique.mockResolvedValue(mockBalance);
       mockPrisma.creditBalance.update.mockResolvedValue(updatedBalance);
 
       const result = await service.consumeCredits('user-1', 10);
@@ -88,9 +86,7 @@ describe('CreditService', () => {
       mockPrisma.$transaction.mockImplementation(async (callback) => {
         return callback(mockPrisma);
       });
-      mockPrisma.creditBalance.findUnique
-        .mockResolvedValueOnce(mockBalance)
-        .mockResolvedValueOnce(updatedBalance);
+      mockPrisma.creditBalance.findUnique.mockResolvedValue(mockBalance);
       mockPrisma.creditBalance.update.mockResolvedValue(updatedBalance);
 
       const result = await service.consumeCredits('user-1', 10);
@@ -148,15 +144,18 @@ describe('CreditService', () => {
       mockPrisma.$transaction.mockImplementation(async (callback) => {
         return callback(mockPrisma);
       });
-      mockPrisma.creditBalance.findUnique
-        .mockResolvedValueOnce(mockBalance)
-        .mockResolvedValueOnce(updatedBalance);
+      mockPrisma.creditBalance.findUnique.mockResolvedValue(mockBalance);
       mockPrisma.creditBalance.update.mockResolvedValue(updatedBalance);
 
       const result = await service.consumeCredits('user-1', 5);
 
       expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(result.planCredits).toBe(45);
+    });
+
+    it('should throw ServiceError when amount is 0 or negative', async () => {
+      await expect(service.consumeCredits('user-1', 0)).rejects.toThrow(ServiceError);
+      await expect(service.consumeCredits('user-1', -5)).rejects.toThrow(ServiceError);
     });
   });
 
@@ -201,6 +200,17 @@ describe('CreditService', () => {
         data: { planCredits: 100, lastResetAt: expect.any(Date) },
       });
     });
+
+    it('should use provided transaction client', async () => {
+      const mockTx = {
+        creditBalance: { update: jest.fn().mockResolvedValue({}) },
+      };
+
+      await service.resetPlanCredits('user-1', 100, mockTx as any);
+
+      expect(mockTx.creditBalance.update).toHaveBeenCalled();
+      expect(mockPrisma.creditBalance.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('addAddonCredits', () => {
@@ -218,6 +228,17 @@ describe('CreditService', () => {
         where: { userId: 'user-1' },
         data: { addonCreditsAvailable: { increment: 15 } },
       });
+    });
+
+    it('should use provided transaction client', async () => {
+      const mockTx = {
+        creditBalance: { update: jest.fn().mockResolvedValue({}) },
+      };
+
+      await service.addAddonCredits('user-1', 15, mockTx as any);
+
+      expect(mockTx.creditBalance.update).toHaveBeenCalled();
+      expect(mockPrisma.creditBalance.update).not.toHaveBeenCalled();
     });
   });
 
@@ -244,6 +265,29 @@ describe('CreditService', () => {
         data: { addonCreditsAvailable: 0, addonCreditsFrozen: { increment: 20 } },
       });
     });
+
+    it('should throw ServiceError when balance not found', async () => {
+      mockPrisma.creditBalance.findUnique.mockResolvedValue(null);
+
+      await expect(service.freezeAddonCredits('user-1')).rejects.toThrow(
+        ServiceError,
+      );
+    });
+
+    it('should use provided transaction client', async () => {
+      const mockBalance = { userId: 'user-1', planCredits: 50, addonCreditsAvailable: 20, addonCreditsFrozen: 0 };
+      const mockTx = {
+        creditBalance: {
+          findUnique: jest.fn().mockResolvedValue(mockBalance),
+          update: jest.fn().mockResolvedValue({})
+        },
+      };
+
+      await service.freezeAddonCredits('user-1', mockTx as any);
+
+      expect(mockTx.creditBalance.update).toHaveBeenCalled();
+      expect(mockPrisma.creditBalance.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('unfreezeAddonCredits', () => {
@@ -268,6 +312,29 @@ describe('CreditService', () => {
         where: { userId: 'user-1' },
         data: { addonCreditsAvailable: { increment: 20 }, addonCreditsFrozen: 0 },
       });
+    });
+
+    it('should throw ServiceError when balance not found', async () => {
+      mockPrisma.creditBalance.findUnique.mockResolvedValue(null);
+
+      await expect(service.unfreezeAddonCredits('user-1')).rejects.toThrow(
+        ServiceError,
+      );
+    });
+
+    it('should use provided transaction client', async () => {
+      const mockBalance = { userId: 'user-1', planCredits: 50, addonCreditsAvailable: 0, addonCreditsFrozen: 20 };
+      const mockTx = {
+        creditBalance: {
+          findUnique: jest.fn().mockResolvedValue(mockBalance),
+          update: jest.fn().mockResolvedValue({})
+        },
+      };
+
+      await service.unfreezeAddonCredits('user-1', mockTx as any);
+
+      expect(mockTx.creditBalance.update).toHaveBeenCalled();
+      expect(mockPrisma.creditBalance.update).not.toHaveBeenCalled();
     });
   });
 });

@@ -30,10 +30,10 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategy {
   async handle(event: WebhookEvent): Promise<void> {
     const failedInvoice = this.paymentService.mapRawInvoice(event.payload);
     const invoiceId = failedInvoice.id;
-
-    this.logger.log(`Processing invoice.payment_failed: ${invoiceId}`);
-
     const stripeSubscriptionId = failedInvoice.subscriptionId;
+    const attemptCount = failedInvoice.attemptCount || DEFAULT_ATTEMPT_COUNT;
+
+    this.logger.log(`Invoice payment failed: invoiceId=${invoiceId}, subscriptionId=${stripeSubscriptionId}, attemptCount=${attemptCount}`);
 
     if (!stripeSubscriptionId) {
       this.logger.warn(`Invoice ${invoiceId} has no subscription (one-time payment)`);
@@ -45,31 +45,41 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategy {
     });
 
     if (!subscription) {
-      this.logger.warn(`Subscription not found for stripeSubscriptionId: ${stripeSubscriptionId}`);
+      this.logger.warn(`Subscription not found for failed invoice: invoiceId=${invoiceId}, subscriptionId=${stripeSubscriptionId}`);
       return;
     }
-
-    const attemptCount = failedInvoice.attemptCount || DEFAULT_ATTEMPT_COUNT;
 
     if (attemptCount < MAX_INVOICE_RETRY_ATTEMPTS) {
       this.logger.log(`Invoice ${invoiceId} payment failed. Attempt ${attemptCount} of ${MAX_INVOICE_RETRY_ATTEMPTS}. Stripe will retry.`);
       return;
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.subscription.update({
-        where: { id: subscription.id },
-        data: { status: SubStatus.PAST_DUE },
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Update subscription status to PAST_DUE
+        await tx.subscription.update({
+          where: { id: subscription.id },
+          data: { status: SubStatus.PAST_DUE },
+        });
+        this.logger.log(`Subscription status changed to PAST_DUE: subscriptionId=${subscription.id}`);
+
+        // Freeze addon credits
+        await this.creditService.freezeAddonCredits(subscription.userId, tx);
+        this.logger.log(`Addon credits frozen: userId=${subscription.userId}`);
+
+        // Reset plan credits to zero
+        await tx.creditBalance.update({
+          where: { userId: subscription.userId },
+          data: { planCredits: ZERO_CREDITS },
+        });
+        this.logger.log(`Plan credits reset to zero: userId=${subscription.userId}`);
       });
 
-      await this.creditService.freezeAddonCredits(subscription.userId, tx);
-
-      await tx.creditBalance.update({
-        where: { userId: subscription.userId },
-        data: { planCredits: ZERO_CREDITS },
-      });
-    });
-
-    this.logger.log(`Payment failed ${MAX_INVOICE_RETRY_ATTEMPTS} times: subscription ${subscription.id} marked as PAST_DUE, credits frozen`);
+      this.logger.log(`Payment failed ${MAX_INVOICE_RETRY_ATTEMPTS} times: subscription=${subscription.id}, status=PAST_DUE, credits frozen`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Invoice failure processing failed: invoiceId=${invoiceId} - ${errorMessage}`);
+      throw error;
+    }
   }
 }

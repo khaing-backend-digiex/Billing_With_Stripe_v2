@@ -32,6 +32,8 @@ describe('CatalogService', () => {
   const mockExchangeRateService = {
     getExchangeRate: jest.fn(),
     getCachedRates: jest.fn(),
+    baseCurrency: 'VND',
+    supportedCurrencies: ['USD', 'EUR', 'GBP'],
   };
 
   beforeEach(async () => {

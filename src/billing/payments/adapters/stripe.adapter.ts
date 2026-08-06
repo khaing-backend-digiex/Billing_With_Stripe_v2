@@ -206,13 +206,7 @@ export class StripeAdapter implements IPaymentAdapter {
         cancel_url: params.cancelUrl,
         metadata: params.metadata,
       });
-      return { 
-        id: session.id, 
-        url: session.url,
-        subscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
-        paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id,
-        metadata: session.metadata as Record<string, string>,
-      };
+      return this.mapRawCheckoutSession(session);
     } catch (error) {
       this.handleStripeError(error, 'Failed to create checkout session', 'checkout.sessions.create');
     }
@@ -221,13 +215,7 @@ export class StripeAdapter implements IPaymentAdapter {
   async getCheckoutSession(sessionId: string): Promise<PaymentSession> {
     try {
       const session = await this.stripe.checkout.sessions.retrieve(sessionId);
-      return { 
-        id: session.id, 
-        url: session.url,
-        subscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
-        paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id,
-        metadata: session.metadata as Record<string, string>,
-      };
+      return this.mapRawCheckoutSession(session);
     } catch (error) {
       this.handleStripeError(error, 'Failed to retrieve checkout session', 'checkout.sessions.retrieve');
     }
@@ -533,4 +521,18 @@ export class StripeAdapter implements IPaymentAdapter {
       })),
     };
   }
+
+  mapRawCheckoutSession(rawSession: unknown): PaymentSession {
+    const session = rawSession as Stripe.Checkout.Session;
+    return {
+      id: session.id,
+      url: session.url,
+      subscriptionId: typeof session.subscription === 'string' ? session.subscription : session.subscription?.id,
+      paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id,
+      metadata: session.metadata as Record<string, string>,
+      customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id || null,
+      mode: session.mode,
+    };
+  }
 }
+

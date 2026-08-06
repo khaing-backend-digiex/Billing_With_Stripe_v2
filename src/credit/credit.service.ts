@@ -17,6 +17,10 @@ export class CreditService {
   }
 
   async consumeCredits(userId: string, amount: number) {
+    if (amount <= 0) {
+      throw new ServiceError(ErrorCode.VALIDATION_ERROR, 'Amount to consume must be greater than 0');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const balance = await tx.creditBalance.findUnique({
         where: { userId },
@@ -45,12 +49,12 @@ export class CreditService {
         throw new ServiceError(ErrorCode.INSUFFICIENT_CREDITS, 'Insufficient credits');
       }
 
-      await tx.creditBalance.update({
+      const updated = await tx.creditBalance.update({
         where: { userId },
         data: updates,
       });
 
-      return this.getCreditBalance(userId);
+      return updated;
     });
   }
 

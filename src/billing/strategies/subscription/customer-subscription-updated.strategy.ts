@@ -44,14 +44,14 @@ export class CustomerSubscriptionUpdatedStrategy implements WebhookStrategy {
     const subscription = this.paymentService.mapRawSubscription(event.payload);
     const stripeSubscriptionId = subscription.id;
 
-    this.logger.log(`Processing customer.subscription.updated: ${stripeSubscriptionId}`);
+    this.logger.log(`Subscription updated: subscriptionId=${stripeSubscriptionId}, status=${subscription.status}, currentPeriodStart=${subscription.currentPeriodStart}, currentPeriodEnd=${subscription.currentPeriodEnd}`);
 
     const localSubscription = await this.prisma.subscription.findUnique({
       where: { stripeSubscriptionId },
     });
 
     if (!localSubscription) {
-      this.logger.warn(`Local subscription not found for stripeSubscriptionId: ${stripeSubscriptionId}`);
+      this.logger.warn(`Subscription not found for update: subscriptionId=${stripeSubscriptionId}`);
       return;
     }
 
@@ -64,32 +64,48 @@ export class CustomerSubscriptionUpdatedStrategy implements WebhookStrategy {
     const currentPeriodStart = new Date(subscription.currentPeriodStart * SECONDS_TO_MS);
     const currentPeriodEnd = new Date(subscription.currentPeriodEnd * SECONDS_TO_MS);
 
-    await this.prisma.$transaction(async (tx) => {
-      const updateData: Prisma.SubscriptionUpdateInput = {
-        currentPeriodStart,
-        currentPeriodEnd,
-      };
+    // Track what changed
+    const changes: string[] = [];
+    if (newPlanType && newPlanType !== localSubscription.plan) {
+      changes.push(`plan: ${localSubscription.plan}→${newPlanType}`);
+    }
+    if (newStatus !== localSubscription.status) {
+      changes.push(`status: ${localSubscription.status}→${newStatus}`);
+    }
 
-      if (newPlanType && newPlanType !== localSubscription.plan) {
-        updateData.plan = newPlanType;
-      }
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const updateData: Prisma.SubscriptionUpdateInput = {
+          currentPeriodStart,
+          currentPeriodEnd,
+        };
 
-      if (newStatus !== localSubscription.status) {
-        updateData.status = newStatus;
-      }
+        if (newPlanType && newPlanType !== localSubscription.plan) {
+          updateData.plan = newPlanType;
+        }
 
-      await tx.subscription.update({
-        where: { id: localSubscription.id },
-        data: updateData,
+        if (newStatus !== localSubscription.status) {
+          updateData.status = newStatus;
+        }
+
+        await tx.subscription.update({
+          where: { id: localSubscription.id },
+          data: updateData,
+        });
+
+        if (newPlanType && newPlanType !== localSubscription.plan) {
+          const credits = PLAN_CREDIT_LIMITS[newPlanType];
+          await this.creditService.resetPlanCredits(localSubscription.userId, credits, tx);
+          this.logger.log(`Plan changed: subscriptionId=${localSubscription.id}, newPlan=${newPlanType}, credits reset to ${credits}`);
+        }
       });
 
-      if (newPlanType && newPlanType !== localSubscription.plan) {
-        const credits = PLAN_CREDIT_LIMITS[newPlanType];
-        await this.creditService.resetPlanCredits(localSubscription.userId, credits, tx);
-      }
-    });
-
-    this.logger.log(`Subscription updated: ${localSubscription.id}`);
+      this.logger.log(`Subscription updated: subscriptionId=${localSubscription.id}, userId=${localSubscription.userId}, changes=[${changes.join(', ')}]`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Subscription update failed: subscriptionId=${stripeSubscriptionId} - ${errorMessage}`);
+      throw error;
+    }
   }
 
   private mapStripeStatus(stripeStatus: string): SubStatus {

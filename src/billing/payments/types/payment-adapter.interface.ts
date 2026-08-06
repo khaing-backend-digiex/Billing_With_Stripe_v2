@@ -89,4 +89,5 @@ export interface IPaymentAdapter {
   mapRawPaymentMethod(rawPaymentMethod: unknown): PaymentMethodDetails;
   mapRawSubscription(rawSubscription: unknown): PaymentSubscription;
   mapRawInvoice(rawInvoice: unknown): PaymentInvoice;
+  mapRawCheckoutSession(rawSession: unknown): PaymentSession;
 }

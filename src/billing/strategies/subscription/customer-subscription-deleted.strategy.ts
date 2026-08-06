@@ -28,29 +28,38 @@ export class CustomerSubscriptionDeletedStrategy implements WebhookStrategy {
     const subscription = this.paymentService.mapRawSubscription(event.payload);
     const stripeSubscriptionId = subscription.id;
 
-    this.logger.log(`Processing customer.subscription.deleted: ${stripeSubscriptionId}`);
+    this.logger.log(`Subscription deleted: subscriptionId=${stripeSubscriptionId}`);
 
     const localSubscription = await this.prisma.subscription.findUnique({
       where: { stripeSubscriptionId },
     });
 
     if (!localSubscription) {
-      this.logger.warn(`Local subscription not found for stripeSubscriptionId: ${stripeSubscriptionId}`);
+      this.logger.warn(`Subscription not found for deletion: subscriptionId=${stripeSubscriptionId}`);
       return;
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.subscription.update({
-        where: { id: localSubscription.id },
-        data: { status: SubStatus.CANCELED },
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.subscription.update({
+          where: { id: localSubscription.id },
+          data: { status: SubStatus.CANCELED },
+        });
+        this.logger.log(`Subscription status changed to CANCELED: subscriptionId=${localSubscription.id}, userId=${localSubscription.userId}`);
+
+        await this.creditService.freezeAddonCredits(localSubscription.userId, tx);
+        this.logger.log(`Addon credits frozen: userId=${localSubscription.userId}`);
+
+        const freeCredits = PLAN_CREDIT_LIMITS[PlanType.FREE];
+        await this.creditService.resetPlanCredits(localSubscription.userId, freeCredits, tx);
+        this.logger.log(`Plan credits reset to FREE tier: userId=${localSubscription.userId}, credits=${freeCredits}`);
       });
 
-      await this.creditService.freezeAddonCredits(localSubscription.userId, tx);
-
-      const freeCredits = PLAN_CREDIT_LIMITS[PlanType.FREE];
-      await this.creditService.resetPlanCredits(localSubscription.userId, freeCredits, tx);
-    });
-
-    this.logger.log(`Subscription deleted: ${localSubscription.id} downgraded to FREE tier`);
+      this.logger.log(`Subscription deleted: subscriptionId=${localSubscription.id}, userId=${localSubscription.userId}, downgraded to FREE tier`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Subscription deletion failed: subscriptionId=${stripeSubscriptionId} - ${errorMessage}`);
+      throw error;
+    }
   }
 }

@@ -119,4 +119,8 @@ export class PaymentService {
   mapRawSubscription(rawSubscription: unknown) {
     return this.paymentAdapter.mapRawSubscription(rawSubscription);
   }
+
+  mapRawCheckoutSession(rawSession: unknown) {
+    return this.paymentAdapter.mapRawCheckoutSession(rawSession);
+  }
 }
