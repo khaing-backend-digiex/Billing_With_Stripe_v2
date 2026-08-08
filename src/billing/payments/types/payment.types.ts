@@ -26,8 +26,14 @@ export interface PaymentInvoice {
   subscriptionId: string | null;
   amountDue: number;
   amountPaid: number;
+  currency: string;
   status: 'draft' | 'open' | 'paid' | 'uncollectible' | 'void' | null;
+  hostedInvoiceUrl?: string | null;
+  invoicePdf?: string | null;
+  periodStart: number;
+  periodEnd: number;
   attemptCount?: number;
+  created: number;
   lines: Array<{
     type: string;
     isProration: boolean;
@@ -102,4 +108,12 @@ export interface PaymentPrice {
   currency: string;
   interval?: string | null;
   active: boolean;
+}
+
+export interface UpcomingInvoice {
+  prorationAmount: number;
+  newCharge: number;
+  netAmount: number;
+  currency: string;
+  nextBillingDate: Date;
 }

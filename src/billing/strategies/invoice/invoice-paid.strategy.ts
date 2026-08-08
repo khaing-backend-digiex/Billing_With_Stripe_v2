@@ -4,7 +4,7 @@ import { PaymentService } from '@/billing/payment.service';
 import { WebhookEvent } from '@/billing/payments/types/payment.types';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreditService } from '@/credit/credit.service';
-import { SubStatus } from '../../../../generated/prisma/client';
+import { SubStatus, InvoiceStatus } from '../../../../generated/prisma/client';
 import { PLAN_CREDIT_LIMITS } from '@/common/constants/plan.constants';
 import { AppLogger } from '@/logger/app-logger';
 import { STRIPE_EVENT_INVOICE_PAID } from '@/common/constants/stripe-event.constants';
@@ -66,6 +66,31 @@ export class InvoicePaidStrategy implements WebhookStrategy {
         const creditAmount = PLAN_CREDIT_LIMITS[subscription.plan];
         await this.creditService.resetPlanCredits(subscription.userId, creditAmount, tx);
         this.logger.log(`Credits reset: subscriptionId=${subscription.id}, plan=${subscription.plan}, amount=${creditAmount}`);
+
+        // Update invoice status to PAID (upsert in case it wasn't tracked yet)
+        await tx.invoice.upsert({
+          where: { stripeInvoiceId: invoiceId },
+          update: {
+            status: InvoiceStatus.PAID,
+            paidAt: new Date(),
+            amountPaid: paidInvoice.amountPaid,
+          },
+          create: {
+            stripeInvoiceId: invoiceId,
+            subscriptionId: subscription.id,
+            userId: subscription.userId,
+            amountDue: paidInvoice.amountDue,
+            amountPaid: paidInvoice.amountPaid,
+            currency: paidInvoice.currency,
+            status: InvoiceStatus.PAID,
+            hostedInvoiceUrl: paidInvoice.hostedInvoiceUrl ?? undefined,
+            invoicePdf: paidInvoice.invoicePdf ?? undefined,
+            periodStart: new Date(paidInvoice.periodStart * 1000),
+            periodEnd: new Date(paidInvoice.periodEnd * 1000),
+            paidAt: new Date(),
+          },
+        });
+        this.logger.log(`Invoice status updated to PAID: invoiceId=${invoiceId}`);
       });
 
       this.logger.log(`Invoice paid processing completed: invoiceId=${invoiceId}, subscriptionId=${subscription.id}`);

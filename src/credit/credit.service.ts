@@ -132,4 +132,48 @@ export class CreditService {
       },
     });
   }
+
+  async revokeSubscriptionCredits(userId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || this.prisma;
+
+    const balance = await client.creditBalance.findUnique({
+      where: { userId },
+    });
+
+    if (!balance) {
+      throw new ServiceError(ErrorCode.CREDIT_BALANCE_NOT_FOUND, 'Credit balance not found');
+    }
+
+    await client.creditBalance.update({
+      where: { userId },
+      data: {
+        planCredits: ZERO_CREDITS,
+        addonCreditsAvailable: ZERO_CREDITS,
+        addonCreditsFrozen: ZERO_CREDITS,
+      },
+    });
+  }
+
+  async ensureFreePlanAfterTerminal(userId: string, tx?: Prisma.TransactionClient) {
+    const client = tx || this.prisma;
+
+    const balance = await client.creditBalance.findUnique({
+      where: { userId },
+    });
+
+    if (!balance) {
+      throw new ServiceError(ErrorCode.CREDIT_BALANCE_NOT_FOUND, 'Credit balance not found');
+    }
+
+    // Ensure user has FREE plan credits (50) after terminal state
+    if (balance.planCredits === ZERO_CREDITS) {
+      await client.creditBalance.update({
+        where: { userId },
+        data: {
+          planCredits: 50, // FREE plan credits
+          lastResetAt: new Date(),
+        },
+      });
+    }
+  }
 }

@@ -45,6 +45,13 @@ export class BillingService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new ServiceError(ErrorCode.USER_NOT_FOUND, 'User not found');
 
+    const activeSubscription = await this.prisma.subscription.findFirst({
+      where: { userId, status: SubStatus.ACTIVE },
+    });
+    if (activeSubscription) {
+      throw new ServiceError(ErrorCode.SUBSCRIPTION_LIMIT_EXCEEDED, 'User already has an active subscription');
+    }
+
     const price = await this.prisma.stripePrice.findUnique({
       where: { stripePriceId: priceId },
       include: { product: true },
@@ -145,25 +152,142 @@ export class BillingService {
     const currentPlan = activeSubscription.plan;
     const newPlan = newPrice.product.planType;
 
-    if (this.isSameTierUpgrade(currentPlan, newPlan)) {
-      await this.paymentService.updateSubscription(activeSubscription.stripeSubscriptionId, {
-        newPriceId,
-        prorationBehavior: STRIPE_PRORATION_CREATE,
-      });
+    const transitionType = this.getTransitionType(currentPlan, newPlan);
 
-      await this.prisma.subscription.update({
-        where: { id: activeSubscription.id },
-        data: { plan: newPlan },
-      });
-    } else {
-      throw new ServiceError(ErrorCode.CROSS_TIER_UPGRADE_DENIED, 'Cross-tier changes require cancel and create');
+    switch (transitionType) {
+      case 'same_plan':
+        throw new ServiceError(ErrorCode.ALREADY_ON_THIS_PLAN, 'No change in subscription plan');
+
+      case 'billing_cycle_upgrade':
+        await this.paymentService.updateSubscription(activeSubscription.stripeSubscriptionId, {
+          newPriceId,
+          prorationBehavior: STRIPE_PRORATION_CREATE,
+        });
+
+        await this.prisma.subscription.update({
+          where: { id: activeSubscription.id },
+          data: { plan: newPlan },
+        });
+        break;
+
+      case 'billing_cycle_downgrade':
+        throw new ServiceError(ErrorCode.DOWNGRADE_DENIED, 'Billing cycle downgrades are not allowed');
+
+      case 'tier_change':
+        throw new ServiceError(ErrorCode.CROSS_TIER_UPGRADE_DENIED, 'Cross-tier changes require cancel and create');
     }
 
     return this.getUserSubscriptions(userId, {});
   }
 
-  private isSameTierUpgrade(current: PlanType, next: PlanType): boolean {
-    const proPlans: PlanType[] = [PlanType.PRO_MONTHLY, PlanType.PRO_ANNUAL];
-    return proPlans.includes(current) && proPlans.includes(next);
+  async previewUpgrade(userId: string, newPriceId: string) {
+    const activeSubscription = await this.prisma.subscription.findFirst({
+      where: { userId, status: SubStatus.ACTIVE },
+    });
+    if (!activeSubscription) throw new ServiceError(ErrorCode.SUBSCRIPTION_NOT_FOUND, 'No active subscription');
+
+    const newPrice = await this.prisma.stripePrice.findUnique({
+      where: { stripePriceId: newPriceId },
+      include: { product: true },
+    });
+    if (!newPrice) throw new ServiceError(ErrorCode.PRICE_NOT_FOUND, 'Price not found');
+
+    const currentPlan = activeSubscription.plan;
+    const newPlan = newPrice.product.planType;
+
+    const transitionType = this.getTransitionType(currentPlan, newPlan);
+
+    switch (transitionType) {
+      case 'same_plan':
+        throw new ServiceError(ErrorCode.ALREADY_ON_THIS_PLAN, 'No change in subscription plan');
+      case 'billing_cycle_downgrade':
+        throw new ServiceError(ErrorCode.DOWNGRADE_DENIED, 'Billing cycle downgrades are not allowed');
+      case 'tier_change':
+        throw new ServiceError(ErrorCode.CROSS_TIER_UPGRADE_DENIED, 'Cross-tier changes require cancel and create');
+    }
+
+    return this.paymentService.previewUpgrade(activeSubscription.stripeSubscriptionId, newPriceId);
+  }
+
+  private getTier(plan: PlanType): string {
+    const tierMap: Record<PlanType, string> = {
+      [PlanType.FREE]: 'FREE',
+      [PlanType.PRO_MONTHLY]: 'PRO',
+      [PlanType.PRO_ANNUAL]: 'PRO',
+      [PlanType.ADDON]: 'ADDON',
+    };
+    return tierMap[plan];
+  }
+
+  private getCycle(plan: PlanType): 'monthly' | 'annual' | null {
+    if (plan === PlanType.PRO_MONTHLY || plan === PlanType.FREE) return 'monthly';
+    if (plan === PlanType.PRO_ANNUAL) return 'annual';
+    return null;
+  }
+
+  private getTransitionType(current: PlanType, next: PlanType): 'same_plan' | 'billing_cycle_upgrade' | 'billing_cycle_downgrade' | 'tier_change' {
+    if (current === next) return 'same_plan';
+
+    const currentTier = this.getTier(current);
+    const nextTier = this.getTier(next);
+
+    if (currentTier !== nextTier) return 'tier_change';
+
+    const currentCycle = this.getCycle(current);
+    const nextCycle = this.getCycle(next);
+
+    if (currentCycle === nextCycle) return 'same_plan';
+
+    if (currentCycle === 'monthly' && nextCycle === 'annual') return 'billing_cycle_upgrade';
+    if (currentCycle === 'annual' && nextCycle === 'monthly') return 'billing_cycle_downgrade';
+
+    return 'same_plan';
+  }
+
+  async listPaymentMethods(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) throw new ServiceError(ErrorCode.USER_NOT_FOUND, 'User not found');
+
+    if (!user.stripeCustomerId) {
+      throw new ServiceError(ErrorCode.STRIPE_CUSTOMER_MISSING, 'User does not have a Stripe customer ID');
+    }
+
+    return this.prisma.paymentMethod.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async deletePaymentMethod(userId: string, paymentMethodId: string) {
+    const paymentMethod = await this.prisma.paymentMethod.findFirst({
+      where: { id: paymentMethodId, userId },
+    });
+
+    if (!paymentMethod) {
+      throw new ServiceError(ErrorCode.PAYMENT_METHOD_NOT_FOUND, 'Payment method not found');
+    }
+
+    await this.paymentService.detachPaymentMethod(paymentMethod.stripePaymentMethodId);
+
+    await this.prisma.paymentMethod.delete({
+      where: { id: paymentMethodId },
+    });
+
+    return { success: true };
+  }
+
+  async createSetupIntent(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) throw new ServiceError(ErrorCode.USER_NOT_FOUND, 'User not found');
+
+    if (!user.stripeCustomerId) {
+      throw new ServiceError(ErrorCode.STRIPE_CUSTOMER_MISSING, 'User does not have a Stripe customer ID');
+    }
+
+    return this.paymentService.createSetupIntent(user.stripeCustomerId);
   }
 }

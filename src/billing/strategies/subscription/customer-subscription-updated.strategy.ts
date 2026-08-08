@@ -93,10 +93,27 @@ export class CustomerSubscriptionUpdatedStrategy implements WebhookStrategy {
           data: updateData,
         });
 
+        // Handle plan changes
         if (newPlanType && newPlanType !== localSubscription.plan) {
           const credits = PLAN_CREDIT_LIMITS[newPlanType];
           await this.creditService.resetPlanCredits(localSubscription.userId, credits, tx);
           this.logger.log(`Plan changed: subscriptionId=${localSubscription.id}, newPlan=${newPlanType}, credits reset to ${credits}`);
+        }
+
+        // Handle payment failures
+        if (newStatus !== localSubscription.status) {
+          if (newStatus === SubStatus.PAST_DUE) {
+            await this.creditService.freezeAddonCredits(localSubscription.userId, tx);
+            this.logger.log(`Payment failed: subscriptionId=${localSubscription.id}, status=PAST_DUE, addon credits frozen`);
+          } else if (newStatus === SubStatus.EXPIRED || newStatus === SubStatus.CANCELED) {
+            await this.creditService.revokeSubscriptionCredits(localSubscription.userId, tx);
+            await this.creditService.ensureFreePlanAfterTerminal(localSubscription.userId, tx);
+            this.logger.log(`Subscription ${newStatus}: subscriptionId=${localSubscription.id}, credits revoked, FREE plan ensured`);
+          } else if (newStatus === SubStatus.ACTIVE && localSubscription.status === SubStatus.PAST_DUE) {
+            // Payment recovered - unfreeze addon credits
+            await this.creditService.unfreezeAddonCredits(localSubscription.userId, tx);
+            this.logger.log(`Payment recovered: subscriptionId=${localSubscription.id}, addon credits unfrozen`);
+          }
         }
       });
 

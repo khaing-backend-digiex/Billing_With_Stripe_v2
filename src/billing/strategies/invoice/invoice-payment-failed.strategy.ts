@@ -50,11 +50,6 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategy {
     }
 
     if (attemptCount < MAX_INVOICE_RETRY_ATTEMPTS) {
-      this.logger.log(`Invoice ${invoiceId} payment failed. Attempt ${attemptCount} of ${MAX_INVOICE_RETRY_ATTEMPTS}. Stripe will retry.`);
-      return;
-    }
-
-    try {
       await this.prisma.$transaction(async (tx) => {
         await tx.subscription.update({
           where: { id: subscription.id },
@@ -64,15 +59,31 @@ export class InvoicePaymentFailedStrategy implements WebhookStrategy {
 
         await this.creditService.freezeAddonCredits(subscription.userId, tx);
         this.logger.log(`Addon credits frozen: userId=${subscription.userId}`);
-
-        await tx.creditBalance.update({
-          where: { userId: subscription.userId },
-          data: { planCredits: ZERO_CREDITS },
-        });
-        this.logger.log(`Plan credits reset to zero: userId=${subscription.userId}`);
       });
 
-      this.logger.log(`Payment failed ${MAX_INVOICE_RETRY_ATTEMPTS} times: subscription=${subscription.id}, status=PAST_DUE, credits frozen`);
+      this.logger.log(`Invoice ${invoiceId} payment failed. Attempt ${attemptCount} of ${MAX_INVOICE_RETRY_ATTEMPTS}. Status=PAST_DUE, credits frozen.`);
+      return;
+    }
+
+    try {
+      await this.paymentService.cancelSubscription(subscription.stripeSubscriptionId);
+      this.logger.log(`Stripe subscription canceled: stripeSubscriptionId=${subscription.stripeSubscriptionId}`);
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.subscription.update({
+          where: { id: subscription.id },
+          data: { status: SubStatus.CANCELED },
+        });
+        this.logger.log(`Subscription status changed to CANCELED: subscriptionId=${subscription.id}`);
+
+        await this.creditService.revokeSubscriptionCredits(subscription.userId, tx);
+        this.logger.log(`Subscription credits revoked: userId=${subscription.userId}`);
+
+        await this.creditService.ensureFreePlanAfterTerminal(subscription.userId, tx);
+        this.logger.log(`FREE plan ensured: userId=${subscription.userId}`);
+      });
+
+      this.logger.log(`Payment failed ${MAX_INVOICE_RETRY_ATTEMPTS} times: subscription=${subscription.id}, status=CANCELED, credits revoked, FREE plan ensured`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`Invoice failure processing failed: invoiceId=${invoiceId} - ${errorMessage}`);

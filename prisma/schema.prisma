@@ -24,6 +24,7 @@ model User {
   subscriptions  Subscription[]
   creditBalance  CreditBalance?
   addonPurchases AddonPurchase[]
+  paymentMethods PaymentMethod[]
   refreshTokens  RefreshToken[]
 
   @@index([email])
@@ -116,20 +117,23 @@ model RolePermission {
 // ============================================================================
 
 model Subscription {
-  id                   String    @id @default(uuid())
-  userId               String
-  stripeSubscriptionId String    @unique
-  plan                 PlanType
-  status               SubStatus
-  currentPeriodStart   DateTime?
-  currentPeriodEnd     DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  id                         String    @id @default(uuid())
+  userId                     String
+  stripeSubscriptionId       String    @unique
+  plan                       PlanType
+  status                     SubStatus
+  currentPeriodStart         DateTime?
+  currentPeriodEnd           DateTime?
+  paymentActionClientSecret  String?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
 
   @@index([userId, status])
   @@index([stripeSubscriptionId])
+  @@index([status, updatedAt])
   @@map("subscriptions")
 }
 
@@ -158,6 +162,53 @@ model AddonPurchase {
 
   @@index([userId])
   @@map("addon_purchases")
+}
+
+model PaymentMethod {
+  id                    String   @id @default(uuid())
+  userId                String
+  stripePaymentMethodId String   @unique
+  brand                 String
+  last4                 String
+  expMonth              Int
+  expYear               Int
+  isDefault             Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@index([userId])
+  @@map("payment_methods")
+}
+
+model Invoice {
+  id                    String        @id @default(uuid())
+  stripeInvoiceId       String        @unique
+  subscriptionId        String
+  userId                String
+  paymentMethodId       String?
+  amountDue             Int
+  amountPaid            Int           @default(0)
+  currency              String
+  status                InvoiceStatus @default(DRAFT)
+  hostedInvoiceUrl      String?
+  invoicePdf            String?
+  periodStart           DateTime
+  periodEnd             DateTime
+  paidAt                DateTime?
+  voidedAt              DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  subscription  Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  paymentMethod PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@map("invoices")
 }
 
 // ============================================================================
@@ -250,4 +301,12 @@ enum WebhookStatus {
   PROCESSING
   DONE
   FAILED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
 }

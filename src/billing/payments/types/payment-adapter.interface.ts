@@ -11,6 +11,7 @@ import {
   WebhookEvent,
   PaymentProduct,
   PaymentPrice,
+  UpcomingInvoice,
 } from '@/billing/payments/types/payment.types';
 
 export interface IPaymentAdapter {
@@ -54,8 +55,7 @@ export interface IPaymentAdapter {
 
   upgradeSubscriptionTier(subscriptionId: string, newPriceId: string): Promise<PaymentSubscription>;
   upgradeSubscriptionCycle(subscriptionId: string, newPriceId: string): Promise<PaymentSubscription>;
-  previewUpgradeSubscriptionTier(customerId: string, subscriptionId: string, newPriceId: string): Promise<unknown>;
-  previewUpgradeSubscriptionCycle(customerId: string, subscriptionId: string, newPriceId: string): Promise<unknown>;
+  previewUpgrade(subscriptionId: string, newPriceId: string): Promise<UpcomingInvoice>;
 
   getLatestPaidInvoice(subscriptionId: string): Promise<PaymentInvoice | null>;
 

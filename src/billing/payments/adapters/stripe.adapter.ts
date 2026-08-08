@@ -15,6 +15,7 @@ import {
   WebhookEvent,
   PaymentProduct,
   PaymentPrice,
+  UpcomingInvoice,
 } from '@/billing/payments/types/payment.types';
 import { AppLogger } from '@/logger/app-logger';
 import { ErrorCode } from '@/common/enums/error-code.enum';
@@ -297,12 +298,36 @@ export class StripeAdapter implements IPaymentAdapter {
     return this.updateSubscription(subscriptionId, { newPriceId, prorationBehavior: 'none' });
   }
 
-  async previewUpgradeSubscriptionTier(customerId: string, subscriptionId: string, newPriceId: string): Promise<unknown> {
-    throw new ServiceError(ErrorCode.INTERNAL_ERROR, 'Not implemented');
-  }
+  async previewUpgrade(subscriptionId: string, newPriceId: string): Promise<UpcomingInvoice> {
+    try {
+      const invoice = await (this.stripe.invoices as any).retrieveUpcoming({
+        subscription: subscriptionId,
+        subscription_items: [{ price: newPriceId }],
+        subscription_proration_behavior: 'create_prorations',
+      });
 
-  async previewUpgradeSubscriptionCycle(customerId: string, subscriptionId: string, newPriceId: string): Promise<unknown> {
-    throw new ServiceError(ErrorCode.INTERNAL_ERROR, 'Not implemented');
+      const prorationAmount = invoice.lines.data
+        .filter((line: any) => line.proration)
+        .reduce((sum: number, line: any) => sum + line.amount, 0);
+
+      const newCharge = invoice.lines.data
+        .filter((line: any) => !line.proration)
+        .reduce((sum: number, line: any) => sum + line.amount, 0);
+
+      const netAmount = prorationAmount + newCharge;
+      const currency = invoice.currency;
+      const nextBillingDate = new Date(invoice.period_end * 1000);
+
+      return {
+        prorationAmount,
+        newCharge,
+        netAmount,
+        currency,
+        nextBillingDate,
+      };
+    } catch (error) {
+      this.handleStripeError(error, 'Failed to preview upgrade', 'invoices.retrieveUpcoming');
+    }
   }
 
   async getLatestPaidInvoice(subscriptionId: string): Promise<PaymentInvoice | null> {
@@ -505,8 +530,14 @@ export class StripeAdapter implements IPaymentAdapter {
       subscriptionId,
       amountDue: invoice.amount_due,
       amountPaid: invoice.amount_paid,
+      currency: invoice.currency,
       status: invoice.status,
+      hostedInvoiceUrl: invoice.hosted_invoice_url || null,
+      invoicePdf: invoice.invoice_pdf || null,
+      periodStart: invoice.period_start || 0,
+      periodEnd: invoice.period_end || 0,
       attemptCount: invoice.attempt_count,
+      created: invoice.created,
       lines: (invoice.lines?.data || []).map(line => ({
         type: line.subscription ? 'subscription' : 'invoiceitem',
         isProration: isLineItemProration(line),

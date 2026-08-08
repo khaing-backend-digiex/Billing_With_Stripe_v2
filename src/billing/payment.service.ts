@@ -6,6 +6,7 @@ import {
   PaymentSession,
   PaymentProduct,
   PaymentPrice,
+  PaymentMethodDetails,
   WebhookEvent,
 } from '@/billing/payments/types/payment.types';
 
@@ -122,5 +123,25 @@ export class PaymentService {
 
   mapRawCheckoutSession(rawSession: unknown) {
     return this.paymentAdapter.mapRawCheckoutSession(rawSession);
+  }
+
+  async previewUpgrade(subscriptionId: string, newPriceId: string): Promise<import('./payments/types/payment.types').UpcomingInvoice> {
+    return this.paymentAdapter.previewUpgrade(subscriptionId, newPriceId);
+  }
+
+  async getPaymentMethod(paymentMethodId: string): Promise<PaymentMethodDetails | null> {
+    return this.paymentAdapter.getPaymentMethod(paymentMethodId);
+  }
+
+  async listPaymentMethods(customerId: string): Promise<PaymentMethodDetails[]> {
+    return this.paymentAdapter.listPaymentMethods(customerId);
+  }
+
+  async detachPaymentMethod(paymentMethodId: string): Promise<void> {
+    return this.paymentAdapter.detachPaymentMethod(paymentMethodId);
+  }
+
+  async createSetupIntent(customerId: string): Promise<import('./payments/types/payment.types').SetupIntentResult> {
+    return this.paymentAdapter.createSetupIntent(customerId);
   }
 }
